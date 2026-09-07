@@ -12,12 +12,12 @@ import java.time.LocalDateTime;
         name = "users",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_user_mobile_number",
-                        columnNames = "mobile_number"
-                ),
-                @UniqueConstraint(
                         name = "uk_user_room",
                         columnNames = "room_id"
+                ),
+                @UniqueConstraint(
+                        name = "uk_user_mobile",
+                        columnNames = "mobile_number"
                 )
         }
 )
@@ -35,20 +35,23 @@ public class User {
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
             name = "room_id",
-            nullable = false
+            nullable = false,
+            unique = true
     )
     private Room room;
+
+    @Column(nullable = false, length = 100)
+    private String name;
 
     @Column(
             name = "mobile_number",
             nullable = false,
-            length = 15
+            length = 15,
+            unique = true
     )
     private String mobileNumber;
 
-    @Column(
-            nullable = false
-    )
+    @Column(nullable = false)
     private String password;
 
     @Enumerated(EnumType.STRING)
@@ -59,16 +62,21 @@ public class User {
     @Column(nullable = false, length = 20)
     private UserStatus status;
 
-    @Column(
-            name = "created_at",
-            nullable = false,
-            updatable = false
-    )
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(
-            name = "updated_at",
-            nullable = false
-    )
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }
