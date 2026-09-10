@@ -24,4 +24,15 @@ public interface PaymentAllocationRepository
     BigDecimal getVerifiedAmountByMaintenanceId(
             @Param("maintenanceId") Long maintenanceId
     );
+
+    @Query("""
+        SELECT COALESCE(SUM(pa.amount), 0)
+        FROM PaymentAllocation pa
+        WHERE pa.payment.id = :paymentId
+        AND pa.payment.status =
+            com.pravin.maintenance_app.ENUM.PaymentStatus.VERIFIED
+        """)
+    BigDecimal getVerifiedAmountByPaymentId(
+            @Param("paymentId") Long paymentId
+    );
 }
