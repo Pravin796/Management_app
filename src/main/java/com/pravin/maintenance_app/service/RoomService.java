@@ -5,6 +5,8 @@ import com.pravin.maintenance_app.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class RoomService {
@@ -23,5 +25,9 @@ public class RoomService {
                 .orElseThrow(() ->
                         new RuntimeException("Room not found: " + roomNumber)
                 );
+    }
+
+    public List<Room> getAllRooms() {
+        return roomRepository.findAll();
     }
 }

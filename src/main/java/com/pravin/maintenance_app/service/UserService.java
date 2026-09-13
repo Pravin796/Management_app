@@ -1,11 +1,14 @@
 package com.pravin.maintenance_app.service;
 
 import com.pravin.maintenance_app.ENUM.Role;
-import com.pravin.maintenance_app.dto.RegisterUserRequest;
+import com.pravin.maintenance_app.ENUM.UserStatus;
+import com.pravin.maintenance_app.dto.UserRegistrationRequest;
+import com.pravin.maintenance_app.dto.UserResponse;
 import com.pravin.maintenance_app.entity.Room;
 import com.pravin.maintenance_app.entity.User;
 import com.pravin.maintenance_app.mapper.UserMapper;
 import com.pravin.maintenance_app.repository.UserRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,7 +22,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
-    public User registerUser(RegisterUserRequest request) {
+    public UserResponse registerUser(@Valid UserRegistrationRequest request) {
 
         // 1. Check duplicate mobile number
         if (userRepository.existsByMobileNumber(
@@ -52,8 +55,12 @@ public class UserService {
                 passwordEncoder.encode(request.getPassword())
         );
         user.setRole(Role.USER);
+        user.setStatus(UserStatus.ACTIVE);
 
         // 6. Save user
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        // 7. Entity → Response DTO
+        return userMapper.toResponse(savedUser);
     }
 }

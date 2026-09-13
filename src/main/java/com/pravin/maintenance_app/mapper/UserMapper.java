@@ -1,7 +1,9 @@
 package com.pravin.maintenance_app.mapper;
 
-import com.pravin.maintenance_app.dto.RegisterUserRequest;
+import com.pravin.maintenance_app.dto.UserRegistrationRequest;
+import com.pravin.maintenance_app.dto.UserResponse;
 import com.pravin.maintenance_app.entity.User;
+import jakarta.validation.Valid;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -15,7 +17,8 @@ public interface UserMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    User toEntity(RegisterUserRequest request);
+    User toEntity(@Valid UserRegistrationRequest request);
 
-//    UserResponse toResponse(User user);
+    @Mapping(target = "roomNumber", source = "room.roomNumber")
+    UserResponse toResponse(User user);
 }

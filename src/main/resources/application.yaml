@@ -1,4 +1,7 @@
 spring:
+  security:
+      name: user
+      password: 1234
   application:
     name: Maintenance_App
   datasource:
@@ -15,6 +18,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+
 
 server:
   port: 8081
