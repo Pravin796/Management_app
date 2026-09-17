@@ -1,6 +1,7 @@
 package com.pravin.maintenance_app.mapper;
 
 import com.pravin.maintenance_app.dto.CreatePaymentRequest;
+import com.pravin.maintenance_app.dto.PaymentResponse;
 import com.pravin.maintenance_app.entity.Payment;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -15,4 +16,7 @@ public interface PaymentMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Payment toEntity(CreatePaymentRequest request);
+
+    @Mapping(target = "roomNumber", source = "room.roomNumber")
+    PaymentResponse toResponse(Payment payment);
 }

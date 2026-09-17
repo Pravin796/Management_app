@@ -8,6 +8,7 @@ import com.pravin.maintenance_app.mapper.PaymentMapper;
 import com.pravin.maintenance_app.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -59,5 +60,23 @@ public class PaymentService {
                 roomId,
                 PaymentStatus.PENDING
         );
+    }
+
+    @Transactional
+    public Payment verifyPayment(Long paymentId) {
+
+        Payment payment = getPaymentById(paymentId);
+
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new RuntimeException(
+                    "Only pending payments can be verified"
+            );
+        }
+
+        payment.setStatus(PaymentStatus.VERIFIED);
+        payment.setVerifiedAt(LocalDateTime.now());
+        payment.setUpdatedAt(LocalDateTime.now());
+
+        return paymentRepository.save(payment);
     }
 }
