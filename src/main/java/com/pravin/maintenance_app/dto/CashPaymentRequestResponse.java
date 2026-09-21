@@ -1,7 +1,6 @@
 package com.pravin.maintenance_app.dto;
 
-import com.pravin.maintenance_app.ENUM.PaymentMethod;
-import com.pravin.maintenance_app.ENUM.PaymentStatus;
+import com.pravin.maintenance_app.ENUM.CashPaymentRequestStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,15 +13,13 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PaymentResponse {
+public class CashPaymentRequestResponse {
     private Long id;
     private String roomNumber;
     private BigDecimal amount;
-    private PaymentMethod method;
-    private PaymentStatus status;
-    private String transactionReference;
-    private String screenshotUrl;
-    private LocalDateTime verifiedAt;
+    private CashPaymentRequestStatus status;
+    private String adminNote;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private LocalDateTime verifiedAt;
+    private LocalDateTime rejectedAt;
 }

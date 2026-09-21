@@ -56,4 +56,14 @@ public class PaymentController {
 
         return ResponseEntity.ok(response);
     }
+
+    @PatchMapping("/{id}/proof")
+    public ResponseEntity<PaymentResponse> updatePaymentProof(
+            @PathVariable Long id,
+            @Valid @RequestBody com.pravin.maintenance_app.dto.UpdatePaymentProofRequest request
+    ) {
+        Payment payment = paymentService.updatePaymentProof(id, request);
+        PaymentResponse response = paymentMapper.toResponse(payment);
+        return ResponseEntity.ok(response);
+    }
 }

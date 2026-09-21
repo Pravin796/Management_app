@@ -22,6 +22,4 @@ public class CreatePaymentRequest {
 
     @NotNull(message = "Payment method is required")
     private PaymentMethod method;
-
-    private String transactionReference;
 }

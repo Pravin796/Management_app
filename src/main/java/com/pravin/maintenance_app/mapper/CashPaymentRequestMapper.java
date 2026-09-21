@@ -1,6 +1,7 @@
 package com.pravin.maintenance_app.mapper;
 
 import com.pravin.maintenance_app.dto.CreateCashPaymentRequest;
+import com.pravin.maintenance_app.dto.CashPaymentRequestResponse;
 import com.pravin.maintenance_app.entity.CashPaymentRequest;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -14,5 +15,9 @@ public interface CashPaymentRequestMapper {
     @Mapping(target = "adminNote", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "verifiedAt", ignore = true)
+    @Mapping(target = "rejectedAt", ignore = true)
     CashPaymentRequest toEntity(CreateCashPaymentRequest request);
+
+    @Mapping(target = "roomNumber", source = "room.roomNumber")
+    CashPaymentRequestResponse toResponse(CashPaymentRequest request);
 }

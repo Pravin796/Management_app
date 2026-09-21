@@ -36,8 +36,13 @@ public class Payment {
     @Column(nullable = false, length = 20)
     private PaymentStatus status;
 
+    // Optional UTR / transaction reference
     @Column(name = "transaction_reference", unique = true)
     private String transactionReference;
+
+    // Optional payment screenshot
+    @Column(name = "screenshot_url", length = 500)
+    private String screenshotUrl;
 
     @Column(name = "verified_at")
     private LocalDateTime verifiedAt;
