@@ -28,7 +28,7 @@ public class UserService {
         if (userRepository.existsByMobileNumber(
                 request.getMobileNumber())) {
 
-            throw new RuntimeException(
+            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
                     "Mobile number is already registered"
             );
         }
@@ -41,7 +41,7 @@ public class UserService {
         // 3. Check whether room already has an account
         if (userRepository.existsByRoomId(room.getId())) {
 
-            throw new RuntimeException(
+            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
                     "An account already exists for this room"
             );
         }
@@ -66,7 +66,7 @@ public class UserService {
 
     public UserResponse getUserById(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+                .orElseThrow(() -> new com.pravin.maintenance_app.exception.ResourceNotFoundException("User not found with id: " + id));
         return userMapper.toResponse(user);
     }
 }

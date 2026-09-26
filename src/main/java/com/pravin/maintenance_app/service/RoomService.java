@@ -16,14 +16,14 @@ public class RoomService {
     public Room getRoomById(Long roomId) {
         return roomRepository.findById(roomId)
                 .orElseThrow(() ->
-                        new RuntimeException("Room not found with id: " + roomId)
+                        new com.pravin.maintenance_app.exception.ResourceNotFoundException("Room not found with id: " + roomId)
                 );
     }
 
     public Room getRoomByRoomNumber(String roomNumber) {
         return roomRepository.findByRoomNumber(roomNumber)
                 .orElseThrow(() ->
-                        new RuntimeException("Room not found: " + roomNumber)
+                        new com.pravin.maintenance_app.exception.ResourceNotFoundException("Room not found: " + roomNumber)
                 );
     }
 

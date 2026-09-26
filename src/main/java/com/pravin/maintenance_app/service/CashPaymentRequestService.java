@@ -27,193 +27,158 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CashPaymentRequestService {
 
-    private final CashPaymentRequestRepository cashPaymentRequestRepository;
-    private final CashPaymentRequestMapper cashPaymentRequestMapper;
-    private final RoomService roomService;
-    private final PaymentRepository paymentRepository;
-    private final MaintenanceRepository maintenanceRepository;
-    private final PaymentAllocationService paymentAllocationService;
+        private final CashPaymentRequestRepository cashPaymentRequestRepository;
+        private final CashPaymentRequestMapper cashPaymentRequestMapper;
+        private final RoomService roomService;
+        private final PaymentRepository paymentRepository;
+        private final MaintenanceRepository maintenanceRepository;
+        private final PaymentAllocationService paymentAllocationService;
 
+        @Transactional
+        public CashPaymentRequest createRequest(CreateCashPaymentRequest request) {
 
-    @Transactional
-    public CashPaymentRequest createRequest(CreateCashPaymentRequest request) {
+                Room room = roomService.getRoomById(request.getRoomId());
 
-        Room room = roomService.getRoomById(request.getRoomId());
+                List<CashPaymentRequest> pendingRequests = cashPaymentRequestRepository.findByRoomIdAndStatus(
+                                room.getId(),
+                                CashPaymentRequestStatus.PENDING);
 
-        List<CashPaymentRequest> pendingRequests =
-                cashPaymentRequestRepository.findByRoomIdAndStatus(
-                        room.getId(),
-                        CashPaymentRequestStatus.PENDING
-                );
+                if (!pendingRequests.isEmpty()) {
+                        throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+                                        "A cash payment request is already pending for this room");
+                }
 
-        if (!pendingRequests.isEmpty()) {
-            throw new RuntimeException(
-                    "A cash payment request is already pending for this room"
-            );
+                CashPaymentRequest cashPaymentRequest = cashPaymentRequestMapper.toEntity(request);
+
+                cashPaymentRequest.setRoom(room);
+                cashPaymentRequest.setStatus(CashPaymentRequestStatus.PENDING);
+                cashPaymentRequest.setCreatedAt(LocalDateTime.now());
+
+                return cashPaymentRequestRepository.save(cashPaymentRequest);
         }
 
-        CashPaymentRequest cashPaymentRequest =
-                cashPaymentRequestMapper.toEntity(request);
+        public CashPaymentRequest getRequestById(Long requestId) {
 
-        cashPaymentRequest.setRoom(room);
-        cashPaymentRequest.setStatus(CashPaymentRequestStatus.PENDING);
-        cashPaymentRequest.setCreatedAt(LocalDateTime.now());
-
-        return cashPaymentRequestRepository.save(cashPaymentRequest);
-    }
-
-
-    public CashPaymentRequest getRequestById(Long requestId) {
-
-        return cashPaymentRequestRepository.findById(requestId)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Cash payment request not found with id: " + requestId
-                        )
-                );
-    }
-
-
-    public List<CashPaymentRequest> getRequestsByRoom(Long roomId) {
-
-        return cashPaymentRequestRepository.findByRoomId(roomId);
-    }
-
-
-    public List<CashPaymentRequest> getPendingRequestsByRoom(Long roomId) {
-
-        return cashPaymentRequestRepository.findByRoomIdAndStatus(
-                roomId,
-                CashPaymentRequestStatus.PENDING
-        );
-    }
-
-
-    public List<CashPaymentRequest> getAllPendingRequests() {
-
-        return cashPaymentRequestRepository.findByStatus(
-                CashPaymentRequestStatus.PENDING
-        );
-    }
-
-
-    @Transactional
-    public CashPaymentRequest verifyRequest(
-            Long requestId,
-            VerifyCashPaymentRequest request
-    ) {
-
-        CashPaymentRequest cashPaymentRequest =
-                getRequestById(requestId);
-
-        if (cashPaymentRequest.getStatus() != CashPaymentRequestStatus.PENDING) {
-            throw new RuntimeException(
-                    "Only pending cash payment requests can be verified"
-            );
+                return cashPaymentRequestRepository.findById(requestId)
+                                .orElseThrow(() -> new com.pravin.maintenance_app.exception.ResourceNotFoundException(
+                                                "Cash payment request not found with id: " + requestId));
         }
 
-        validateAllocationTotal(
-                cashPaymentRequest.getAmount(),
-                request.getAllocations()
-        );
+        public List<CashPaymentRequest> getRequestsByRoom(Long roomId) {
 
-        LocalDateTime now = LocalDateTime.now();
-
-        /*
-         * Create the actual Payment record.
-         */
-        Payment payment = new Payment();
-
-        payment.setRoom(cashPaymentRequest.getRoom());
-        payment.setAmount(cashPaymentRequest.getAmount());
-        payment.setMethod(PaymentMethod.CASH);
-        payment.setStatus(PaymentStatus.VERIFIED);
-        payment.setCreatedAt(now);
-        payment.setUpdatedAt(now);
-        payment.setVerifiedAt(now);
-
-        payment = paymentRepository.save(payment);
-
-
-        /*
-         * Create allocations.
-         */
-        for (CashPaymentAllocationRequest allocationRequest
-                : request.getAllocations()) {
-
-            CreatePaymentAllocationRequest allocation =
-                    new CreatePaymentAllocationRequest();
-
-            allocation.setPaymentId(payment.getId());
-            allocation.setMaintenanceId(
-                    allocationRequest.getMaintenanceId()
-            );
-            allocation.setAmount(
-                    allocationRequest.getAmount()
-            );
-
-            paymentAllocationService.createAllocation(allocation);
+                return cashPaymentRequestRepository.findByRoomId(roomId);
         }
 
+        public List<CashPaymentRequest> getPendingRequestsByRoom(Long roomId) {
 
-        /*
-         * Mark cash request as verified.
-         */
-        cashPaymentRequest.setStatus(
-                CashPaymentRequestStatus.VERIFIED
-        );
-
-        cashPaymentRequest.setAdminNote(
-                request.getAdminNote()
-        );
-
-        cashPaymentRequest.setVerifiedAt(now);
-
-        return cashPaymentRequestRepository.save(cashPaymentRequest);
-    }
-
-
-    @Transactional
-    public CashPaymentRequest rejectRequest(
-            Long requestId,
-            String adminNote
-    ) {
-
-        CashPaymentRequest cashPaymentRequest =
-                getRequestById(requestId);
-
-        if (cashPaymentRequest.getStatus() != CashPaymentRequestStatus.PENDING) {
-            throw new RuntimeException(
-                    "Only pending cash payment requests can be rejected"
-            );
+                return cashPaymentRequestRepository.findByRoomIdAndStatus(
+                                roomId,
+                                CashPaymentRequestStatus.PENDING);
         }
 
-        cashPaymentRequest.setStatus(
-                CashPaymentRequestStatus.REJECTED
-        );
+        public List<CashPaymentRequest> getAllPendingRequests() {
 
-        cashPaymentRequest.setAdminNote(adminNote);
-
-        /*
-         * Do not set verifiedAt because the request was rejected.
-         */
-        return cashPaymentRequestRepository.save(cashPaymentRequest);
-    }
-
-
-    private void validateAllocationTotal(
-            BigDecimal requestAmount,
-            List<CashPaymentAllocationRequest> allocations
-    ) {
-
-        BigDecimal allocationTotal = allocations.stream()
-                .map(CashPaymentAllocationRequest::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (allocationTotal.compareTo(requestAmount) != 0) {
-            throw new RuntimeException(
-                    "Allocation total must exactly match cash payment amount"
-            );
+                return cashPaymentRequestRepository.findByStatus(
+                                CashPaymentRequestStatus.PENDING);
         }
-    }
+
+        @Transactional
+        public CashPaymentRequest verifyRequest(
+                        Long requestId,
+                        VerifyCashPaymentRequest request) {
+
+                CashPaymentRequest cashPaymentRequest = getRequestById(requestId);
+
+                if (cashPaymentRequest.getStatus() != CashPaymentRequestStatus.PENDING) {
+                        throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+                                        "Only pending cash payment requests can be verified");
+                }
+
+                validateAllocationTotal(
+                                cashPaymentRequest.getAmount(),
+                                request.getAllocations());
+
+                LocalDateTime now = LocalDateTime.now();
+
+                /*
+                 * Create the actual Payment record.
+                 */
+                Payment payment = new Payment();
+
+                payment.setRoom(cashPaymentRequest.getRoom());
+                payment.setAmount(cashPaymentRequest.getAmount());
+                payment.setMethod(PaymentMethod.CASH);
+                payment.setStatus(PaymentStatus.VERIFIED);
+                payment.setCreatedAt(now);
+                payment.setUpdatedAt(now);
+                payment.setVerifiedAt(now);
+
+                payment = paymentRepository.save(payment);
+
+                /*
+                 * Create allocations.
+                 */
+                for (CashPaymentAllocationRequest allocationRequest : request.getAllocations()) {
+
+                        CreatePaymentAllocationRequest allocation = new CreatePaymentAllocationRequest();
+
+                        allocation.setPaymentId(payment.getId());
+                        allocation.setMaintenanceId(
+                                        allocationRequest.getMaintenanceId());
+                        allocation.setAmount(
+                                        allocationRequest.getAmount());
+
+                        paymentAllocationService.createAllocation(allocation);
+                }
+
+                /*
+                 * Mark cash request as verified.
+                 */
+                cashPaymentRequest.setStatus(
+                                CashPaymentRequestStatus.VERIFIED);
+
+                cashPaymentRequest.setAdminNote(
+                                request.getAdminNote());
+
+                cashPaymentRequest.setVerifiedAt(now);
+
+                return cashPaymentRequestRepository.save(cashPaymentRequest);
+        }
+
+        @Transactional
+        public CashPaymentRequest rejectRequest(
+                        Long requestId,
+                        String adminNote) {
+
+                CashPaymentRequest cashPaymentRequest = getRequestById(requestId);
+
+                if (cashPaymentRequest.getStatus() != CashPaymentRequestStatus.PENDING) {
+                        throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+                                        "Only pending cash payment requests can be rejected");
+                }
+
+                cashPaymentRequest.setStatus(
+                                CashPaymentRequestStatus.REJECTED);
+
+                cashPaymentRequest.setAdminNote(adminNote);
+
+                /*
+                 * Do not set verifiedAt because the request was rejected.
+                 */
+                return cashPaymentRequestRepository.save(cashPaymentRequest);
+        }
+
+        private void validateAllocationTotal(
+                        BigDecimal requestAmount,
+                        List<CashPaymentAllocationRequest> allocations) {
+
+                BigDecimal allocationTotal = allocations.stream()
+                                .map(CashPaymentAllocationRequest::getAmount)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                if (allocationTotal.compareTo(requestAmount) != 0) {
+                        throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+                                        "Allocation total must exactly match cash payment amount");
+                }
+        }
 }

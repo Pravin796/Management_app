@@ -32,7 +32,7 @@ public class PaymentAllocationService {
 
         Payment payment = paymentRepository.findById(request.getPaymentId())
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new com.pravin.maintenance_app.exception.ResourceNotFoundException(
                                 "Payment not found with id: "
                                         + request.getPaymentId()
                         )
@@ -44,7 +44,7 @@ public class PaymentAllocationService {
                 );
 
         if (payment.getStatus() != PaymentStatus.VERIFIED) {
-            throw new RuntimeException(
+            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
                     "Only verified payments can be allocated"
             );
         }
@@ -52,7 +52,7 @@ public class PaymentAllocationService {
         if (!payment.getRoom().getId()
                 .equals(maintenance.getRoom().getId())) {
 
-            throw new RuntimeException(
+            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
                     "Payment and maintenance belong to different rooms"
             );
         }
@@ -64,7 +64,7 @@ public class PaymentAllocationService {
                 payment.getAmount().subtract(allocatedPaymentAmount);
 
         if (request.getAmount().compareTo(remainingPaymentAmount) > 0) {
-            throw new RuntimeException(
+            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
                     "Allocation amount exceeds remaining payment amount"
             );
         }
@@ -80,7 +80,7 @@ public class PaymentAllocationService {
                         .subtract(allocatedMaintenanceAmount);
 
         if (request.getAmount().compareTo(remainingMaintenanceAmount) > 0) {
-            throw new RuntimeException(
+            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
                     "Allocation amount exceeds remaining maintenance amount"
             );
         }
@@ -104,7 +104,7 @@ public class PaymentAllocationService {
     ) {
         paymentRepository.findById(paymentId)
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new com.pravin.maintenance_app.exception.ResourceNotFoundException(
                                 "Payment not found with id: " + paymentId
                         )
                 );

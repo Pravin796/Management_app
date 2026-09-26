@@ -21,7 +21,7 @@ public class AuthService {
         User user = userRepository
                 .findByMobileNumber(request.getMobileNumber())
                 .orElseThrow(() ->
-                        new RuntimeException("Invalid mobile number or password")
+                        new com.pravin.maintenance_app.exception.BusinessValidationException("Invalid mobile number or password")
                 );
 
         // 2. Check password
@@ -29,14 +29,14 @@ public class AuthService {
                 request.getPassword(),
                 user.getPassword())) {
 
-            throw new RuntimeException(
+            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
                     "Invalid mobile number or password"
             );
         }
 
         // 3. Check whether user is active
         if (user.getStatus() != com.pravin.maintenance_app.ENUM.UserStatus.ACTIVE) {
-            throw new RuntimeException("User account is inactive");
+            throw new com.pravin.maintenance_app.exception.BusinessValidationException("User account is inactive");
         }
 
         // 4. Create response
