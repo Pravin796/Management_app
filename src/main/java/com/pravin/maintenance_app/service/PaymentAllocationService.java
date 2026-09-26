@@ -1,5 +1,7 @@
 package com.pravin.maintenance_app.service;
 
+import com.pravin.maintenance_app.exception.ResourceNotFoundException;
+import com.pravin.maintenance_app.exception.BusinessValidationException;
 import com.pravin.maintenance_app.ENUM.MaintenanceStatus;
 import com.pravin.maintenance_app.ENUM.PaymentStatus;
 import com.pravin.maintenance_app.dto.CreatePaymentAllocationRequest;
@@ -32,7 +34,7 @@ public class PaymentAllocationService {
 
         Payment payment = paymentRepository.findById(request.getPaymentId())
                 .orElseThrow(() ->
-                        new com.pravin.maintenance_app.exception.ResourceNotFoundException(
+                        new ResourceNotFoundException(
                                 "Payment not found with id: "
                                         + request.getPaymentId()
                         )
@@ -44,7 +46,7 @@ public class PaymentAllocationService {
                 );
 
         if (payment.getStatus() != PaymentStatus.VERIFIED) {
-            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+            throw new BusinessValidationException(
                     "Only verified payments can be allocated"
             );
         }
@@ -52,7 +54,7 @@ public class PaymentAllocationService {
         if (!payment.getRoom().getId()
                 .equals(maintenance.getRoom().getId())) {
 
-            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+            throw new BusinessValidationException(
                     "Payment and maintenance belong to different rooms"
             );
         }
@@ -64,7 +66,7 @@ public class PaymentAllocationService {
                 payment.getAmount().subtract(allocatedPaymentAmount);
 
         if (request.getAmount().compareTo(remainingPaymentAmount) > 0) {
-            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+            throw new BusinessValidationException(
                     "Allocation amount exceeds remaining payment amount"
             );
         }
@@ -80,7 +82,7 @@ public class PaymentAllocationService {
                         .subtract(allocatedMaintenanceAmount);
 
         if (request.getAmount().compareTo(remainingMaintenanceAmount) > 0) {
-            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+            throw new BusinessValidationException(
                     "Allocation amount exceeds remaining maintenance amount"
             );
         }
@@ -104,7 +106,7 @@ public class PaymentAllocationService {
     ) {
         paymentRepository.findById(paymentId)
                 .orElseThrow(() ->
-                        new com.pravin.maintenance_app.exception.ResourceNotFoundException(
+                        new ResourceNotFoundException(
                                 "Payment not found with id: " + paymentId
                         )
                 );

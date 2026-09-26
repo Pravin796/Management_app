@@ -1,5 +1,7 @@
 package com.pravin.maintenance_app.service;
 
+import com.pravin.maintenance_app.exception.ResourceNotFoundException;
+import com.pravin.maintenance_app.exception.BusinessValidationException;
 import com.pravin.maintenance_app.ENUM.CashPaymentRequestStatus;
 import com.pravin.maintenance_app.ENUM.PaymentMethod;
 import com.pravin.maintenance_app.ENUM.PaymentStatus;
@@ -8,7 +10,6 @@ import com.pravin.maintenance_app.dto.CreateCashPaymentRequest;
 import com.pravin.maintenance_app.dto.CreatePaymentAllocationRequest;
 import com.pravin.maintenance_app.dto.VerifyCashPaymentRequest;
 import com.pravin.maintenance_app.entity.CashPaymentRequest;
-import com.pravin.maintenance_app.entity.Maintenance;
 import com.pravin.maintenance_app.entity.Payment;
 import com.pravin.maintenance_app.entity.Room;
 import com.pravin.maintenance_app.mapper.CashPaymentRequestMapper;
@@ -44,7 +45,7 @@ public class CashPaymentRequestService {
                                 CashPaymentRequestStatus.PENDING);
 
                 if (!pendingRequests.isEmpty()) {
-                        throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+                        throw new BusinessValidationException(
                                         "A cash payment request is already pending for this room");
                 }
 
@@ -60,7 +61,7 @@ public class CashPaymentRequestService {
         public CashPaymentRequest getRequestById(Long requestId) {
 
                 return cashPaymentRequestRepository.findById(requestId)
-                                .orElseThrow(() -> new com.pravin.maintenance_app.exception.ResourceNotFoundException(
+                                .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Cash payment request not found with id: " + requestId));
         }
 
@@ -90,7 +91,7 @@ public class CashPaymentRequestService {
                 CashPaymentRequest cashPaymentRequest = getRequestById(requestId);
 
                 if (cashPaymentRequest.getStatus() != CashPaymentRequestStatus.PENDING) {
-                        throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+                        throw new BusinessValidationException(
                                         "Only pending cash payment requests can be verified");
                 }
 
@@ -153,7 +154,7 @@ public class CashPaymentRequestService {
                 CashPaymentRequest cashPaymentRequest = getRequestById(requestId);
 
                 if (cashPaymentRequest.getStatus() != CashPaymentRequestStatus.PENDING) {
-                        throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+                        throw new BusinessValidationException(
                                         "Only pending cash payment requests can be rejected");
                 }
 
@@ -177,7 +178,7 @@ public class CashPaymentRequestService {
                                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                 if (allocationTotal.compareTo(requestAmount) != 0) {
-                        throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+                        throw new BusinessValidationException(
                                         "Allocation total must exactly match cash payment amount");
                 }
         }

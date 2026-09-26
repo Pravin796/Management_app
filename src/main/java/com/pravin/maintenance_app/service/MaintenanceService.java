@@ -1,5 +1,7 @@
 package com.pravin.maintenance_app.service;
 
+import com.pravin.maintenance_app.exception.ResourceNotFoundException;
+import com.pravin.maintenance_app.exception.BusinessValidationException;
 import com.pravin.maintenance_app.ENUM.MaintenanceStatus;
 import com.pravin.maintenance_app.config.MaintenanceProperties;
 import com.pravin.maintenance_app.dto.CreateMaintenanceRequest;
@@ -24,7 +26,7 @@ public class MaintenanceService {
 
         public Maintenance getMaintenanceById(Long maintenanceId) {
                 return maintenanceRepository.findById(maintenanceId)
-                                .orElseThrow(() -> new com.pravin.maintenance_app.exception.ResourceNotFoundException(
+                                .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Maintenance not found with id: " + maintenanceId));
         }
 
@@ -33,7 +35,7 @@ public class MaintenanceService {
                         YearMonth billingMonth) {
                 return maintenanceRepository
                                 .findByRoomIdAndBillingMonth(roomId, billingMonth)
-                                .orElseThrow(() -> new com.pravin.maintenance_app.exception.ResourceNotFoundException(
+                                .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Maintenance not found for room: "
                                                                 + roomId
                                                                 + " and month: "
@@ -45,7 +47,7 @@ public class MaintenanceService {
                 Room room = roomService.getRoomById(request.getRoomId());
 
                 if (room.isMaintenanceExempt()) {
-                        throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+                        throw new BusinessValidationException(
                                         "Maintenance is exempt for room: "
                                                         + room.getRoomNumber());
                 }
@@ -53,7 +55,7 @@ public class MaintenanceService {
                 if (maintenanceRepository.existsByRoomIdAndBillingMonth(
                                 room.getId(),
                                 request.getBillingMonth())) {
-                        throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+                        throw new BusinessValidationException(
                                         "Maintenance already exists for room: "
                                                         + room.getRoomNumber()
                                                         + " and month: "

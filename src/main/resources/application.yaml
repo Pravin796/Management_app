@@ -18,6 +18,10 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    
+jwt:
+  secret: 4y+3rvem1icxOqAP8+THNo3fI760btfh8A0lrW6+P7Y=
+  expiration: 86400000
 
 
 server:

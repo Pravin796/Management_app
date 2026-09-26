@@ -1,5 +1,7 @@
 package com.pravin.maintenance_app.service;
 
+import com.pravin.maintenance_app.exception.ResourceNotFoundException;
+import com.pravin.maintenance_app.exception.BusinessValidationException;
 import com.pravin.maintenance_app.ENUM.PaymentStatus;
 import com.pravin.maintenance_app.dto.CreatePaymentRequest;
 import com.pravin.maintenance_app.entity.Payment;
@@ -26,7 +28,7 @@ public class PaymentService {
         Room room = roomService.getRoomById(request.getRoomId());
 
         if (paymentRepository.existsByRoomIdAndStatus(room.getId(), PaymentStatus.PENDING)) {
-            throw new com.pravin.maintenance_app.exception.BusinessValidationException("Room already has a pending payment");
+            throw new BusinessValidationException("Room already has a pending payment");
         }
 
         Payment payment = paymentMapper.toEntity(request);
@@ -43,7 +45,7 @@ public class PaymentService {
 
         return paymentRepository.findById(paymentId)
                 .orElseThrow(() ->
-                        new com.pravin.maintenance_app.exception.ResourceNotFoundException(
+                        new ResourceNotFoundException(
                                 "Payment not found with id: " + paymentId
                         )
                 );
@@ -72,12 +74,12 @@ public class PaymentService {
         Payment payment = getPaymentById(paymentId);
 
         if (payment.getStatus() != PaymentStatus.PENDING) {
-            throw new com.pravin.maintenance_app.exception.BusinessValidationException("Only pending payments can have payment proof updated.");
+            throw new BusinessValidationException("Only pending payments can have payment proof updated.");
         }
 
         if ((request.getTransactionReference() == null || request.getTransactionReference().isBlank()) &&
             (request.getScreenshotUrl() == null || request.getScreenshotUrl().isBlank())) {
-            throw new com.pravin.maintenance_app.exception.BusinessValidationException("At least one proof field (transactionReference or screenshotUrl) must be provided");
+            throw new BusinessValidationException("At least one proof field (transactionReference or screenshotUrl) must be provided");
         }
 
         if (request.getTransactionReference() != null && !request.getTransactionReference().isBlank()) {
@@ -99,7 +101,7 @@ public class PaymentService {
         Payment payment = getPaymentById(paymentId);
 
         if (payment.getStatus() != PaymentStatus.PENDING) {
-            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+            throw new BusinessValidationException(
                     "Only pending payments can be verified"
             );
         }

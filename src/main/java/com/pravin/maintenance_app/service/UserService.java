@@ -1,5 +1,7 @@
 package com.pravin.maintenance_app.service;
 
+import com.pravin.maintenance_app.exception.ResourceNotFoundException;
+import com.pravin.maintenance_app.exception.BusinessValidationException;
 import com.pravin.maintenance_app.ENUM.Role;
 import com.pravin.maintenance_app.ENUM.UserStatus;
 import com.pravin.maintenance_app.dto.UserRegistrationRequest;
@@ -28,7 +30,7 @@ public class UserService {
         if (userRepository.existsByMobileNumber(
                 request.getMobileNumber())) {
 
-            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+            throw new BusinessValidationException(
                     "Mobile number is already registered"
             );
         }
@@ -41,7 +43,7 @@ public class UserService {
         // 3. Check whether room already has an account
         if (userRepository.existsByRoomId(room.getId())) {
 
-            throw new com.pravin.maintenance_app.exception.BusinessValidationException(
+            throw new BusinessValidationException(
                     "An account already exists for this room"
             );
         }
@@ -66,7 +68,7 @@ public class UserService {
 
     public UserResponse getUserById(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new com.pravin.maintenance_app.exception.ResourceNotFoundException("User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         return userMapper.toResponse(user);
     }
 }

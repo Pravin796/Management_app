@@ -1,5 +1,6 @@
 package com.pravin.maintenance_app.service;
 
+import com.pravin.maintenance_app.exception.ResourceNotFoundException;
 import com.pravin.maintenance_app.entity.Room;
 import com.pravin.maintenance_app.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,14 +17,14 @@ public class RoomService {
     public Room getRoomById(Long roomId) {
         return roomRepository.findById(roomId)
                 .orElseThrow(() ->
-                        new com.pravin.maintenance_app.exception.ResourceNotFoundException("Room not found with id: " + roomId)
+                        new ResourceNotFoundException("Room not found with id: " + roomId)
                 );
     }
 
     public Room getRoomByRoomNumber(String roomNumber) {
         return roomRepository.findByRoomNumber(roomNumber)
                 .orElseThrow(() ->
-                        new com.pravin.maintenance_app.exception.ResourceNotFoundException("Room not found: " + roomNumber)
+                        new ResourceNotFoundException("Room not found: " + roomNumber)
                 );
     }
 
