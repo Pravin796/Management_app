@@ -8,6 +8,9 @@ import com.pravin.maintenance_app.entity.Payment;
 import com.pravin.maintenance_app.entity.Room;
 import com.pravin.maintenance_app.mapper.PaymentMapper;
 import com.pravin.maintenance_app.repository.PaymentRepository;
+import com.pravin.maintenance_app.security.CurrentUserService;
+import com.pravin.maintenance_app.entity.User;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +25,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final RoomService roomService;
     private final PaymentMapper paymentMapper;
+    private final CurrentUserService currentUserService;
 
     public Payment createPayment(CreatePaymentRequest request) {
 
@@ -44,11 +48,8 @@ public class PaymentService {
     public Payment getPaymentById(Long paymentId) {
 
         return paymentRepository.findById(paymentId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Payment not found with id: " + paymentId
-                        )
-                );
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Payment not found with id: " + paymentId));
     }
 
     public List<Payment> getPaymentsByRoom(Long roomId) {
@@ -64,12 +65,12 @@ public class PaymentService {
 
         return paymentRepository.findByRoomIdAndStatus(
                 roomId,
-                PaymentStatus.PENDING
-        );
+                PaymentStatus.PENDING);
     }
 
     @Transactional
-    public Payment updatePaymentProof(Long paymentId, com.pravin.maintenance_app.dto.UpdatePaymentProofRequest request) {
+    public Payment updatePaymentProof(Long paymentId,
+            com.pravin.maintenance_app.dto.UpdatePaymentProofRequest request) {
 
         Payment payment = getPaymentById(paymentId);
 
@@ -78,8 +79,9 @@ public class PaymentService {
         }
 
         if ((request.getTransactionReference() == null || request.getTransactionReference().isBlank()) &&
-            (request.getScreenshotUrl() == null || request.getScreenshotUrl().isBlank())) {
-            throw new BusinessValidationException("At least one proof field (transactionReference or screenshotUrl) must be provided");
+                (request.getScreenshotUrl() == null || request.getScreenshotUrl().isBlank())) {
+            throw new BusinessValidationException(
+                    "At least one proof field (transactionReference or screenshotUrl) must be provided");
         }
 
         if (request.getTransactionReference() != null && !request.getTransactionReference().isBlank()) {
@@ -102,8 +104,7 @@ public class PaymentService {
 
         if (payment.getStatus() != PaymentStatus.PENDING) {
             throw new BusinessValidationException(
-                    "Only pending payments can be verified"
-            );
+                    "Only pending payments can be verified");
         }
 
         payment.setStatus(PaymentStatus.VERIFIED);
@@ -111,5 +112,12 @@ public class PaymentService {
         payment.setUpdatedAt(LocalDateTime.now());
 
         return paymentRepository.save(payment);
+    }
+
+    public List<Payment> getMyPayments() {
+
+        User user = currentUserService.getCurrentUser();
+        Long roomId = user.getRoom().getId();
+        return paymentRepository.findByRoomId(roomId);
     }
 }
