@@ -7,12 +7,17 @@ import com.pravin.maintenance_app.config.MaintenanceProperties;
 import com.pravin.maintenance_app.dto.CreateMaintenanceRequest;
 import com.pravin.maintenance_app.entity.Maintenance;
 import com.pravin.maintenance_app.entity.Room;
+import com.pravin.maintenance_app.entity.User;
 import com.pravin.maintenance_app.mapper.MaintenanceMapper;
 import com.pravin.maintenance_app.repository.MaintenanceRepository;
+import com.pravin.maintenance_app.security.CurrentUserService;
+import org.springframework.security.access.AccessDeniedException;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.YearMonth;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +28,7 @@ public class MaintenanceService {
         private final MaintenanceRepository maintenanceRepository;
         private final RoomService roomService;
         private final MaintenanceMapper maintenanceMapper;
+        private final CurrentUserService currentUserService;
 
         public Maintenance getMaintenanceById(Long maintenanceId) {
                 return maintenanceRepository.findById(maintenanceId)
@@ -33,6 +39,14 @@ public class MaintenanceService {
         public Maintenance getMaintenanceByRoomAndMonth(
                         Long roomId,
                         YearMonth billingMonth) {
+
+                User currentUser = currentUserService.getCurrentUser();
+
+                if (!currentUser.getRoom().getId().equals(roomId)) {
+                        throw new AccessDeniedException(
+                                        "You are not allowed to access maintenance for this room");
+                }
+
                 return maintenanceRepository
                                 .findByRoomIdAndBillingMonth(roomId, billingMonth)
                                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -70,5 +84,14 @@ public class MaintenanceService {
                 maintenance.setStatus(MaintenanceStatus.PENDING);
 
                 return maintenanceRepository.save(maintenance);
+        }
+
+        public List<Maintenance> getMyMaintenance() {
+
+                User user = currentUserService.getCurrentUser();
+
+                Long roomId = user.getRoom().getId();
+
+                return maintenanceRepository.findByRoomId(roomId);
         }
 }

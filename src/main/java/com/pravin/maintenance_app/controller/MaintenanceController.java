@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.YearMonth;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/maintenance")
@@ -42,6 +43,17 @@ public class MaintenanceController {
             @PathVariable YearMonth billingMonth) {
         Maintenance maintenance = maintenanceService.getMaintenanceByRoomAndMonth(roomId, billingMonth);
         MaintenanceResponse response = maintenanceMapper.toResponse(maintenance);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/my")
+    public ResponseEntity<List<MaintenanceResponse>> getMyMaintenance() {
+
+        List<MaintenanceResponse> response = maintenanceService.getMyMaintenance()
+                .stream()
+                .map(maintenanceMapper::toResponse)
+                .toList();
+
         return ResponseEntity.ok(response);
     }
 }

@@ -4,6 +4,7 @@ import com.pravin.maintenance_app.dto.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -18,12 +19,14 @@ public class GlobalExceptionHandler {
         public ResponseEntity<ApiErrorResponse> handleResourceNotFoundException(
                         ResourceNotFoundException ex,
                         HttpServletRequest request) {
+
                 ApiErrorResponse response = new ApiErrorResponse(
                                 LocalDateTime.now(),
                                 HttpStatus.NOT_FOUND.value(),
                                 "Not Found",
                                 ex.getMessage(),
                                 request.getRequestURI());
+
                 return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
         }
 
@@ -31,12 +34,14 @@ public class GlobalExceptionHandler {
         public ResponseEntity<ApiErrorResponse> handleBusinessValidationException(
                         BusinessValidationException ex,
                         HttpServletRequest request) {
+
                 ApiErrorResponse response = new ApiErrorResponse(
                                 LocalDateTime.now(),
                                 HttpStatus.BAD_REQUEST.value(),
                                 "Bad Request",
                                 ex.getMessage(),
                                 request.getRequestURI());
+
                 return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
@@ -44,7 +49,10 @@ public class GlobalExceptionHandler {
         public ResponseEntity<ApiErrorResponse> handleValidationException(
                         MethodArgumentNotValidException ex,
                         HttpServletRequest request) {
-                String message = ex.getBindingResult().getFieldErrors().stream()
+
+                String message = ex.getBindingResult()
+                                .getFieldErrors()
+                                .stream()
                                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                                 .collect(Collectors.joining("; "));
 
@@ -54,19 +62,41 @@ public class GlobalExceptionHandler {
                                 "Bad Request",
                                 message,
                                 request.getRequestURI());
+
                 return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        @ExceptionHandler(AccessDeniedException.class)
+        public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+                        AccessDeniedException ex,
+                        HttpServletRequest request) {
+
+                ApiErrorResponse response = new ApiErrorResponse(
+                                LocalDateTime.now(),
+                                HttpStatus.FORBIDDEN.value(),
+                                "Forbidden",
+                                ex.getMessage(),
+                                request.getRequestURI());
+
+                return new ResponseEntity<>(
+                                response,
+                                HttpStatus.FORBIDDEN);
         }
 
         @ExceptionHandler(Exception.class)
         public ResponseEntity<ApiErrorResponse> handleUnexpectedException(
                         Exception ex,
                         HttpServletRequest request) {
+
                 ApiErrorResponse response = new ApiErrorResponse(
                                 LocalDateTime.now(),
                                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                                 "Internal Server Error",
                                 "An unexpected error occurred",
                                 request.getRequestURI());
-                return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+
+                return new ResponseEntity<>(
+                                response,
+                                HttpStatus.INTERNAL_SERVER_ERROR);
         }
 }

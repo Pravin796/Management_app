@@ -29,6 +29,18 @@ public class PaymentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @GetMapping("/my")
+    public ResponseEntity<List<PaymentResponse>> getMyPayments() {
+
+        List<PaymentResponse> responses = paymentService
+                .getMyPayments()
+                .stream()
+                .map(paymentMapper::toResponse)
+                .toList();
+
+        return ResponseEntity.ok(responses);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<PaymentResponse> getPaymentById(@PathVariable Long id) {
         Payment payment = paymentService.getPaymentById(id);
@@ -36,7 +48,8 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
-    // Temporary ID-based alternative for /my since Spring Security is not yet implemented
+    // Temporary ID-based alternative for /my since Spring Security is not yet
+    // implemented
     @GetMapping("/room/{roomId}")
     public ResponseEntity<List<PaymentResponse>> getPaymentsByRoom(@PathVariable Long roomId) {
         List<Payment> payments = paymentService.getPaymentsByRoom(roomId);
@@ -48,8 +61,7 @@ public class PaymentController {
 
     @PutMapping("/{id}/verify")
     public ResponseEntity<PaymentResponse> verifyPayment(
-            @PathVariable Long id
-    ) {
+            @PathVariable Long id) {
 
         Payment payment = paymentService.verifyPayment(id);
         PaymentResponse response = paymentMapper.toResponse(payment);
@@ -60,10 +72,10 @@ public class PaymentController {
     @PatchMapping("/{id}/proof")
     public ResponseEntity<PaymentResponse> updatePaymentProof(
             @PathVariable Long id,
-            @Valid @RequestBody com.pravin.maintenance_app.dto.UpdatePaymentProofRequest request
-    ) {
+            @Valid @RequestBody com.pravin.maintenance_app.dto.UpdatePaymentProofRequest request) {
         Payment payment = paymentService.updatePaymentProof(id, request);
         PaymentResponse response = paymentMapper.toResponse(payment);
         return ResponseEntity.ok(response);
     }
+
 }
