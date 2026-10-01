@@ -10,8 +10,8 @@ import com.pravin.maintenance_app.mapper.PaymentMapper;
 import com.pravin.maintenance_app.repository.PaymentRepository;
 import com.pravin.maintenance_app.security.CurrentUserService;
 import com.pravin.maintenance_app.entity.User;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,28 +29,49 @@ public class PaymentService {
 
     public Payment createPayment(CreatePaymentRequest request) {
 
-        Room room = roomService.getRoomById(request.getRoomId());
+    User currentUser = currentUserService.getCurrentUser();
 
-        if (paymentRepository.existsByRoomIdAndStatus(room.getId(), PaymentStatus.PENDING)) {
-            throw new BusinessValidationException("Room already has a pending payment");
-        }
+    Room room = currentUser.getRoom();
 
-        Payment payment = paymentMapper.toEntity(request);
+    if (paymentRepository.existsByRoomIdAndStatus(
+            room.getId(),
+            PaymentStatus.PENDING)) {
 
-        payment.setRoom(room);
-        payment.setStatus(PaymentStatus.PENDING);
-        payment.setCreatedAt(LocalDateTime.now());
-        payment.setUpdatedAt(LocalDateTime.now());
-
-        return paymentRepository.save(payment);
+        throw new BusinessValidationException(
+                "Room already has a pending payment");
     }
+
+    Payment payment = paymentMapper.toEntity(request);
+
+    payment.setRoom(room);
+    payment.setStatus(PaymentStatus.PENDING);
+    payment.setCreatedAt(LocalDateTime.now());
+    payment.setUpdatedAt(LocalDateTime.now());
+
+    return paymentRepository.save(payment);
+}
 
     public Payment getPaymentById(Long paymentId) {
 
-        return paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Payment not found with id: " + paymentId));
+    Payment payment = paymentRepository.findById(paymentId)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException(
+                            "Payment not found with id: " + paymentId
+                    )
+            );
+
+    User currentUser = currentUserService.getCurrentUser();
+
+    if (!currentUser.getRoom().getId()
+            .equals(payment.getRoom().getId())) {
+
+        throw new AccessDeniedException(
+                "You are not allowed to access this payment"
+        );
     }
+
+    return payment;
+}
 
     public List<Payment> getPaymentsByRoom(Long roomId) {
 
