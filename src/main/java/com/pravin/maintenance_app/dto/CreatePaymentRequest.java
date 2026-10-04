@@ -10,9 +10,6 @@ import java.math.BigDecimal;
 @Data
 public class CreatePaymentRequest {
 
-    @NotNull(message = "Room id is required")
-    private Long roomId;
-
     @NotNull(message = "Payment amount is required")
     @DecimalMin(
             value = "0.01",
