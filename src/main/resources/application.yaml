@@ -29,3 +29,10 @@ server:
 
 maintenance:
   monthly-amount: 500.00
+
+app:
+  admin:
+    mobile-number: 9925708020
+    password: Pradyuman
+    name: PRADYUMAN
+    room-number: "207"

@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.pravin.maintenance_app.dto.UpdatePaymentProofRequest;
+import com.pravin.maintenance_app.ENUM.Role;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,27 +31,27 @@ public class PaymentService {
 
     public Payment createPayment(CreatePaymentRequest request) {
 
-    User currentUser = currentUserService.getCurrentUser();
+        User currentUser = currentUserService.getCurrentUser();
 
-    Room room = currentUser.getRoom();
+        Room room = currentUser.getRoom();
 
-    if (paymentRepository.existsByRoomIdAndStatus(
-            room.getId(),
-            PaymentStatus.PENDING)) {
+        if (paymentRepository.existsByRoomIdAndStatus(
+                room.getId(),
+                PaymentStatus.PENDING)) {
 
-        throw new BusinessValidationException(
-                "Room already has a pending payment");
+            throw new BusinessValidationException(
+                    "Room already has a pending payment");
+        }
+
+        Payment payment = paymentMapper.toEntity(request);
+
+        payment.setRoom(room);
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setCreatedAt(LocalDateTime.now());
+        payment.setUpdatedAt(LocalDateTime.now());
+
+        return paymentRepository.save(payment);
     }
-
-    Payment payment = paymentMapper.toEntity(request);
-
-    payment.setRoom(room);
-    payment.setStatus(PaymentStatus.PENDING);
-    payment.setCreatedAt(LocalDateTime.now());
-    payment.setUpdatedAt(LocalDateTime.now());
-
-    return paymentRepository.save(payment);
-}
 
     public Payment getPaymentById(Long paymentId) {
 
@@ -62,13 +64,14 @@ public class PaymentService {
 
     User currentUser = currentUserService.getCurrentUser();
 
-    if (!currentUser.getRoom().getId()
-            .equals(payment.getRoom().getId())) {
+    if (currentUser.getRole() != Role.ADMIN
+        && !currentUser.getRoom().getId()
+                .equals(payment.getRoom().getId())) {
 
-        throw new AccessDeniedException(
-                "You are not allowed to access this payment"
-        );
-    }
+    throw new AccessDeniedException(
+            "You are not allowed to access this payment"
+    );
+}
 
     return payment;
 }
@@ -90,8 +93,9 @@ public class PaymentService {
     }
 
     @Transactional
-    public Payment updatePaymentProof(Long paymentId,
-            com.pravin.maintenance_app.dto.UpdatePaymentProofRequest request) {
+    public Payment updatePaymentProof(
+            Long paymentId,
+            UpdatePaymentProofRequest request) {
 
         Payment payment = getPaymentById(paymentId);
 

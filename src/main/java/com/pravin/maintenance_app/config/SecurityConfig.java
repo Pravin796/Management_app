@@ -9,6 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 
 import com.pravin.maintenance_app.security.JwtAuthenticationFilter;
 
@@ -44,7 +45,14 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/cash-payments/admin/pending",
                                 "/api/cash-payments/*/verify",
-                                "/api/cash-payments/*/reject")
+                                "/api/cash-payments/*/reject",
+                                "/api/payments/*/verify",
+                                "/api/payments/room/**")
+                        .hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/maintenance")
                         .hasRole("ADMIN")
 
                         .anyRequest().authenticated())

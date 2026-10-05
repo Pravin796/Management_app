@@ -12,6 +12,7 @@ import com.pravin.maintenance_app.mapper.MaintenanceMapper;
 import com.pravin.maintenance_app.repository.MaintenanceRepository;
 import com.pravin.maintenance_app.security.CurrentUserService;
 import org.springframework.security.access.AccessDeniedException;
+import com.pravin.maintenance_app.ENUM.Role;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,9 +32,22 @@ public class MaintenanceService {
         private final CurrentUserService currentUserService;
 
         public Maintenance getMaintenanceById(Long maintenanceId) {
-                return maintenanceRepository.findById(maintenanceId)
+
+                Maintenance maintenance = maintenanceRepository.findById(maintenanceId)
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Maintenance not found with id: " + maintenanceId));
+
+                User currentUser = currentUserService.getCurrentUser();
+
+                if (currentUser.getRole() != Role.ADMIN
+                                && !currentUser.getRoom().getId()
+                                                .equals(maintenance.getRoom().getId())) {
+
+                        throw new AccessDeniedException(
+                                        "You are not allowed to access this maintenance record");
+                }
+
+                return maintenance;
         }
 
         public Maintenance getMaintenanceByRoomAndMonth(
@@ -42,7 +56,9 @@ public class MaintenanceService {
 
                 User currentUser = currentUserService.getCurrentUser();
 
-                if (!currentUser.getRoom().getId().equals(roomId)) {
+                if (currentUser.getRole() != Role.ADMIN
+                                && !currentUser.getRoom().getId().equals(roomId)) {
+
                         throw new AccessDeniedException(
                                         "You are not allowed to access maintenance for this room");
                 }
