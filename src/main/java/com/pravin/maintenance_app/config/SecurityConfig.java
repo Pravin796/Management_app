@@ -10,64 +10,98 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
 
 import com.pravin.maintenance_app.security.JwtAuthenticationFilter;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+        private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-    }
+        public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+                this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder();
+        }
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
-        http
-                .csrf(csrf -> csrf.disable())
+                http
+                                .csrf(csrf -> csrf.disable())
 
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/auth/register",
-                                "/api/auth/login",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html")
-                        .permitAll()
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers(
+                                                                "/api/auth/register",
+                                                                "/api/auth/login",
+                                                                "/v3/api-docs/**",
+                                                                "/swagger-ui/**",
+                                                                "/swagger-ui.html")
+                                                .permitAll()
 
-                        .requestMatchers(
-                                "/api/cash-payments/admin/pending",
-                                "/api/cash-payments/*/verify",
-                                "/api/cash-payments/*/reject",
-                                "/api/payments/*/verify",
-                                "/api/payments/room/**")
-                        .hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                "/api/cash-payments/admin/pending",
+                                                                "/api/cash-payments/*/verify",
+                                                                "/api/cash-payments/*/reject",
+                                                                "/api/payments/*/verify",
+                                                                "/api/payments/room/**")
+                                                .hasRole("ADMIN")
 
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/maintenance")
-                        .hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/maintenance")
+                                                .hasRole("ADMIN")
 
-                        .anyRequest().authenticated())
+                                                .requestMatchers(HttpMethod.POST,
+                                                                "/api/payment-allocations")
+                                                .hasRole("ADMIN")
 
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class);
+                                                .anyRequest().authenticated())
 
-        return http.build();
-    }
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint((request, response, authException) -> {
+                                                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                                                        response.setContentType("application/json");
 
-    @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration configuration) throws Exception {
+                                                        response.getWriter()
+                                                                        .write("""
+                                                                                        {
+                                                                                            "status": 401,
+                                                                                            "message": "Authentication required or JWT is invalid"
+                                                                                        }
+                                                                                        """);
+                                                })
+                                                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                                                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                                                        response.setContentType("application/json");
 
-        return configuration.getAuthenticationManager();
-    }
+                                                        response.getWriter()
+                                                                        .write("""
+                                                                                        {
+                                                                                            "status": 403,
+                                                                                            "message": "You are not allowed to access this resource"
+                                                                                        }
+                                                                                        """);
+                                                }))
+
+                                .addFilterBefore(
+                                                jwtAuthenticationFilter,
+                                                UsernamePasswordAuthenticationFilter.class);
+
+                return http.build();
+        }
+
+        @Bean
+        public AuthenticationManager authenticationManager(
+                        AuthenticationConfiguration configuration) throws Exception {
+
+                return configuration.getAuthenticationManager();
+        }
 }

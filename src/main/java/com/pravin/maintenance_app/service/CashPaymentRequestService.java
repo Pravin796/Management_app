@@ -5,6 +5,7 @@ import com.pravin.maintenance_app.exception.BusinessValidationException;
 import com.pravin.maintenance_app.ENUM.CashPaymentRequestStatus;
 import com.pravin.maintenance_app.ENUM.PaymentMethod;
 import com.pravin.maintenance_app.ENUM.PaymentStatus;
+import com.pravin.maintenance_app.ENUM.Role;
 import com.pravin.maintenance_app.dto.CashPaymentAllocationRequest;
 import com.pravin.maintenance_app.dto.CreateCashPaymentRequest;
 import com.pravin.maintenance_app.dto.CreatePaymentAllocationRequest;
@@ -14,11 +15,14 @@ import com.pravin.maintenance_app.entity.Payment;
 import com.pravin.maintenance_app.entity.Room;
 import com.pravin.maintenance_app.mapper.CashPaymentRequestMapper;
 import com.pravin.maintenance_app.repository.CashPaymentRequestRepository;
-import com.pravin.maintenance_app.repository.MaintenanceRepository;
 import com.pravin.maintenance_app.repository.PaymentRepository;
+import com.pravin.maintenance_app.security.CurrentUserService;
+import com.pravin.maintenance_app.entity.User;
+
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,15 +34,16 @@ public class CashPaymentRequestService {
 
         private final CashPaymentRequestRepository cashPaymentRequestRepository;
         private final CashPaymentRequestMapper cashPaymentRequestMapper;
-        private final RoomService roomService;
         private final PaymentRepository paymentRepository;
-        private final MaintenanceRepository maintenanceRepository;
         private final PaymentAllocationService paymentAllocationService;
+        private final CurrentUserService currentUserService;
 
         @Transactional
         public CashPaymentRequest createRequest(CreateCashPaymentRequest request) {
 
-                Room room = roomService.getRoomById(request.getRoomId());
+                User currentUser = currentUserService.getCurrentUser();
+
+                Room room = currentUser.getRoom();
 
                 List<CashPaymentRequest> pendingRequests = cashPaymentRequestRepository.findByRoomIdAndStatus(
                                 room.getId(),
@@ -60,17 +65,48 @@ public class CashPaymentRequestService {
 
         public CashPaymentRequest getRequestById(Long requestId) {
 
-                return cashPaymentRequestRepository.findById(requestId)
+                CashPaymentRequest cashPaymentRequest = cashPaymentRequestRepository.findById(requestId)
                                 .orElseThrow(() -> new ResourceNotFoundException(
-                                                "Cash payment request not found with id: " + requestId));
+                                                "Cash payment request not found with id: "
+                                                                + requestId));
+
+                User currentUser = currentUserService.getCurrentUser();
+
+                if (currentUser.getRole() != Role.ADMIN
+                                && !currentUser.getRoom().getId()
+                                                .equals(cashPaymentRequest.getRoom().getId())) {
+
+                        throw new AccessDeniedException(
+                                        "You are not allowed to access this cash payment request");
+                }
+
+                return cashPaymentRequest;
         }
 
         public List<CashPaymentRequest> getRequestsByRoom(Long roomId) {
+
+                User currentUser = currentUserService.getCurrentUser();
+
+                if (currentUser.getRole() != Role.ADMIN
+                                && !currentUser.getRoom().getId().equals(roomId)) {
+
+                        throw new AccessDeniedException(
+                                        "You are not allowed to access cash payment requests for this room");
+                }
 
                 return cashPaymentRequestRepository.findByRoomId(roomId);
         }
 
         public List<CashPaymentRequest> getPendingRequestsByRoom(Long roomId) {
+
+                User currentUser = currentUserService.getCurrentUser();
+
+                if (currentUser.getRole() != Role.ADMIN
+                                && !currentUser.getRoom().getId().equals(roomId)) {
+
+                        throw new AccessDeniedException(
+                                        "You are not allowed to access cash payment requests for this room");
+                }
 
                 return cashPaymentRequestRepository.findByRoomIdAndStatus(
                                 roomId,
