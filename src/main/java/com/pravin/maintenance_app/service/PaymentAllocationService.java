@@ -11,6 +11,10 @@ import com.pravin.maintenance_app.entity.PaymentAllocation;
 import com.pravin.maintenance_app.mapper.PaymentAllocationMapper;
 import com.pravin.maintenance_app.repository.PaymentAllocationRepository;
 import com.pravin.maintenance_app.repository.PaymentRepository;
+import com.pravin.maintenance_app.security.CurrentUserService;
+import com.pravin.maintenance_app.entity.User;
+import com.pravin.maintenance_app.ENUM.Role;
+import org.springframework.security.access.AccessDeniedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,11 +30,17 @@ public class PaymentAllocationService {
     private final PaymentRepository paymentRepository;
     private final MaintenanceService maintenanceService;
     private final PaymentAllocationMapper paymentAllocationMapper;
+    private final PaymentService paymentService;
+    private final CurrentUserService currentUserService;
 
     @Transactional
     public PaymentAllocation createAllocation(
             CreatePaymentAllocationRequest request
     ) {
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only ADMIN can create payment allocations");
+        }
 
         Payment payment = paymentRepository.findById(request.getPaymentId())
                 .orElseThrow(() ->
@@ -104,12 +114,7 @@ public class PaymentAllocationService {
     public List<PaymentAllocation> getAllocationsByPayment(
             Long paymentId
     ) {
-        paymentRepository.findById(paymentId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Payment not found with id: " + paymentId
-                        )
-                );
+        paymentService.getPaymentById(paymentId);
 
         return paymentAllocationRepository.findByPaymentId(paymentId);
     }

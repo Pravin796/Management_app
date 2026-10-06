@@ -10,6 +10,8 @@ import com.pravin.maintenance_app.entity.Room;
 import com.pravin.maintenance_app.entity.User;
 import com.pravin.maintenance_app.mapper.UserMapper;
 import com.pravin.maintenance_app.repository.UserRepository;
+import com.pravin.maintenance_app.security.CurrentUserService;
+import org.springframework.security.access.AccessDeniedException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +25,7 @@ public class UserService {
     private final RoomService roomService;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final CurrentUserService currentUserService;
 
     public UserResponse registerUser(@Valid UserRegistrationRequest request) {
 
@@ -69,6 +72,12 @@ public class UserService {
     public UserResponse getUserById(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN && !currentUser.getId().equals(user.getId())) {
+            throw new AccessDeniedException("You are not allowed to access this user");
+        }
+        
         return userMapper.toResponse(user);
     }
 }

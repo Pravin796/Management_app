@@ -115,6 +115,11 @@ public class CashPaymentRequestService {
 
         public List<CashPaymentRequest> getAllPendingRequests() {
 
+                User currentUser = currentUserService.getCurrentUser();
+                if (currentUser.getRole() != Role.ADMIN) {
+                        throw new AccessDeniedException("Only ADMIN can access all pending cash requests");
+                }
+
                 return cashPaymentRequestRepository.findByStatus(
                                 CashPaymentRequestStatus.PENDING);
         }
@@ -125,6 +130,11 @@ public class CashPaymentRequestService {
                         VerifyCashPaymentRequest request) {
 
                 CashPaymentRequest cashPaymentRequest = getRequestById(requestId);
+
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only ADMIN can verify cash requests");
+        }
 
                 if (cashPaymentRequest.getStatus() != CashPaymentRequestStatus.PENDING) {
                         throw new BusinessValidationException(
@@ -188,6 +198,11 @@ public class CashPaymentRequestService {
                         String adminNote) {
 
                 CashPaymentRequest cashPaymentRequest = getRequestById(requestId);
+
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only ADMIN can reject cash requests");
+        }
 
                 if (cashPaymentRequest.getStatus() != CashPaymentRequestStatus.PENDING) {
                         throw new BusinessValidationException(

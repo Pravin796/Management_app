@@ -125,6 +125,11 @@ public class PaymentService {
     @Transactional
     public Payment verifyPayment(Long paymentId) {
 
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only ADMIN can verify payments");
+        }
+
         Payment payment = getPaymentById(paymentId);
 
         if (payment.getStatus() != PaymentStatus.PENDING) {
