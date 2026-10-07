@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
-// @RestControllerAdvice
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
         @ExceptionHandler(ResourceNotFoundException.class)
@@ -98,5 +98,20 @@ public class GlobalExceptionHandler {
                 return new ResponseEntity<>(
                                 response,
                                 HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+        public ResponseEntity<ApiErrorResponse> handleAuthenticationException(
+                        org.springframework.security.core.AuthenticationException ex,
+                        HttpServletRequest request) {
+
+                ApiErrorResponse response = new ApiErrorResponse(
+                                LocalDateTime.now(),
+                                HttpStatus.UNAUTHORIZED.value(),
+                                "Unauthorized",
+                                "Invalid mobile number or password",
+                                request.getRequestURI());
+
+                return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
         }
 }

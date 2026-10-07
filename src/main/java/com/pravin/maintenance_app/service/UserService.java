@@ -61,6 +61,7 @@ public class UserService {
         );
         user.setRole(Role.USER);
         user.setStatus(UserStatus.ACTIVE);
+        user.setMustChangePassword(false);
 
         // 6. Save user
         User savedUser = userRepository.save(user);

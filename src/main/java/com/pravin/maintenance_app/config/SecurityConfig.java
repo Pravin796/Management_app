@@ -70,13 +70,18 @@ public class SecurityConfig {
                                                         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                                                         response.setContentType("application/json");
 
+                                                        String message = "Authentication required";
+                                                        if (request.getAttribute("invalid_jwt") != null) {
+                                                                message = "Invalid or expired JWT";
+                                                        }
+
                                                         response.getWriter()
-                                                                        .write("""
+                                                                        .write(String.format("""
                                                                                         {
                                                                                             "status": 401,
-                                                                                            "message": "Authentication required or JWT is invalid"
+                                                                                            "message": "%s"
                                                                                         }
-                                                                                        """);
+                                                                                        """, message));
                                                 })
                                                 .accessDeniedHandler((request, response, accessDeniedException) -> {
                                                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);

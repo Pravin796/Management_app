@@ -79,7 +79,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
         } catch (JwtException exception) {
-
+            request.setAttribute("invalid_jwt", true);
             // Invalid or expired JWT.
             // Continue without authentication.
         }
