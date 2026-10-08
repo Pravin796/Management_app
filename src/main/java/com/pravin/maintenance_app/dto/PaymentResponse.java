@@ -22,6 +22,7 @@ public class PaymentResponse {
     private PaymentStatus status;
     private String transactionReference;
     private String screenshotUrl;
+    private String screenshotPublicId;
     private LocalDateTime verifiedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

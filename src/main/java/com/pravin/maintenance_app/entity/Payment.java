@@ -44,6 +44,9 @@ public class Payment {
     @Column(name = "screenshot_url", length = 500)
     private String screenshotUrl;
 
+    @Column(name = "screenshot_public_id")
+    private String screenshotPublicId;
+
     @Column(name = "verified_at")
     private LocalDateTime verifiedAt;
 

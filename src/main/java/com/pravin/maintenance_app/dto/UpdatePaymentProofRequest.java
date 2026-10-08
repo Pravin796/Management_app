@@ -8,4 +8,6 @@ public class UpdatePaymentProofRequest {
     private String transactionReference;
 
     private String screenshotUrl;
+
+    private String screenshotPublicId;
 }

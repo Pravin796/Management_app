@@ -4,6 +4,10 @@ spring:
       password: 1234
   application:
     name: Maintenance_App
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
   datasource:
     url: jdbc:postgresql://localhost:5432/residency_management
     username: postgres
@@ -37,3 +41,8 @@ app:
     password: Pradyuman
     name: PRADYUMAN
     room-number: "207"
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:dufr7et1h}
+  api-key: ${CLOUDINARY_API_KEY:753919841944539}
+  api-secret: ${CLOUDINARY_API_SECRET:xUbbEvdOEnTEghFeQ1t9nrW_Juk}

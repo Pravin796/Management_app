@@ -88,11 +88,13 @@ public class GlobalExceptionHandler {
                         Exception ex,
                         HttpServletRequest request) {
 
+                ex.printStackTrace(); // Log the actual error to the console
+                
                 ApiErrorResponse response = new ApiErrorResponse(
                                 LocalDateTime.now(),
                                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                                 "Internal Server Error",
-                                "An unexpected error occurred",
+                                ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred",
                                 request.getRequestURI());
 
                 return new ResponseEntity<>(

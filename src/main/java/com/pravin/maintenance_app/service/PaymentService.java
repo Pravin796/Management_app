@@ -104,9 +104,10 @@ public class PaymentService {
         }
 
         if ((request.getTransactionReference() == null || request.getTransactionReference().isBlank()) &&
-                (request.getScreenshotUrl() == null || request.getScreenshotUrl().isBlank())) {
+                (request.getScreenshotUrl() == null || request.getScreenshotUrl().isBlank()) &&
+                (request.getScreenshotPublicId() == null || request.getScreenshotPublicId().isBlank())) {
             throw new BusinessValidationException(
-                    "At least one proof field (transactionReference or screenshotUrl) must be provided");
+                    "At least one proof field (transactionReference, screenshotUrl, or screenshotPublicId) must be provided");
         }
 
         if (request.getTransactionReference() != null && !request.getTransactionReference().isBlank()) {
@@ -115,6 +116,10 @@ public class PaymentService {
 
         if (request.getScreenshotUrl() != null && !request.getScreenshotUrl().isBlank()) {
             payment.setScreenshotUrl(request.getScreenshotUrl());
+        }
+
+        if (request.getScreenshotPublicId() != null && !request.getScreenshotPublicId().isBlank()) {
+            payment.setScreenshotPublicId(request.getScreenshotPublicId());
         }
 
         payment.setUpdatedAt(LocalDateTime.now());
