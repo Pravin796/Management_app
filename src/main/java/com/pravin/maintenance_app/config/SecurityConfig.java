@@ -62,6 +62,10 @@ public class SecurityConfig {
                                                 .requestMatchers(HttpMethod.POST,
                                                                 "/api/payment-allocations")
                                                 .hasRole("ADMIN")
+                                                
+                                                .requestMatchers(
+                                                                "/api/admin/users/**")
+                                                .hasRole("ADMIN")
 
                                                 .anyRequest().authenticated())
 

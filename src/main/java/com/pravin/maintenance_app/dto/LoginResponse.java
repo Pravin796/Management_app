@@ -7,6 +7,7 @@ public class LoginResponse {
     private String mobileNumber;
     private String role;
     private String token;
+    private boolean mustChangePassword;
 
     public LoginResponse() {
     }
@@ -49,5 +50,13 @@ public class LoginResponse {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
     }
 }

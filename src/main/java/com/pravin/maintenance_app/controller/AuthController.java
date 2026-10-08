@@ -4,6 +4,8 @@ import com.pravin.maintenance_app.dto.UserRegistrationRequest;
 import com.pravin.maintenance_app.dto.LoginRequest;
 import com.pravin.maintenance_app.dto.LoginResponse;
 import com.pravin.maintenance_app.dto.UserResponse;
+import com.pravin.maintenance_app.dto.ChangePasswordRequest;
+import com.pravin.maintenance_app.dto.ChangePasswordResponse;
 import com.pravin.maintenance_app.service.AuthService;
 import com.pravin.maintenance_app.service.UserService;
 import jakarta.validation.Valid;
@@ -52,6 +54,19 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request) {
 
         LoginResponse response = authService.login(request);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Change Password", description = "Change the password for the authenticated user")
+    @SecurityRequirements({@io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")})
+    @ApiResponse(responseCode = "200", description = "Password changed successfully")
+    @ApiResponse(responseCode = "400", description = "Invalid request or validation failed", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @PostMapping("/change-password")
+    public ResponseEntity<ChangePasswordResponse> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request) {
+
+        ChangePasswordResponse response = userService.changePassword(request);
 
         return ResponseEntity.ok(response);
     }

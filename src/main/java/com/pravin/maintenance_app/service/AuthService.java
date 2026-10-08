@@ -44,6 +44,7 @@ public class AuthService {
         response.setMobileNumber(user.getMobileNumber());
         response.setRole(user.getRole().name());
         response.setToken(token);
+        response.setMustChangePassword(user.isMustChangePassword());
 
         return response;
     }

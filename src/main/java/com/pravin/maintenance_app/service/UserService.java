@@ -4,6 +4,11 @@ import com.pravin.maintenance_app.exception.ResourceNotFoundException;
 import com.pravin.maintenance_app.exception.BusinessValidationException;
 import com.pravin.maintenance_app.ENUM.Role;
 import com.pravin.maintenance_app.ENUM.UserStatus;
+import java.security.SecureRandom;
+
+import com.pravin.maintenance_app.dto.AdminResetPasswordResponse;
+import com.pravin.maintenance_app.dto.ChangePasswordRequest;
+import com.pravin.maintenance_app.dto.ChangePasswordResponse;
 import com.pravin.maintenance_app.dto.UserRegistrationRequest;
 import com.pravin.maintenance_app.dto.UserResponse;
 import com.pravin.maintenance_app.entity.Room;
@@ -80,5 +85,61 @@ public class UserService {
         }
         
         return userMapper.toResponse(user);
+    }
+
+    public AdminResetPasswordResponse adminResetPassword(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        if (user.getRole() == Role.ADMIN) {
+            throw new BusinessValidationException("Cannot reset password for ADMIN accounts");
+        }
+
+        String tempPassword = generateTemporaryPassword(10);
+
+        user.setPassword(passwordEncoder.encode(tempPassword));
+        user.setMustChangePassword(true);
+        userRepository.save(user);
+
+        return AdminResetPasswordResponse.builder()
+                .userId(user.getId())
+                .roomNumber(user.getRoom().getRoomNumber())
+                .temporaryPassword(tempPassword)
+                .message("Password reset successfully. User must change the password after login.")
+                .build();
+    }
+
+    private String generateTemporaryPassword(int length) {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
+    }
+
+    public ChangePasswordResponse changePassword(@Valid ChangePasswordRequest request) {
+        User currentUser = currentUserService.getCurrentUser();
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new BusinessValidationException("Incorrect current password");
+        }
+
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BusinessValidationException("New password and confirm password do not match");
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BusinessValidationException("New password cannot be the same as the current password");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setMustChangePassword(false);
+        userRepository.save(user);
+
+        return new ChangePasswordResponse("Password changed successfully.");
     }
 }
