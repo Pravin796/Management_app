@@ -30,7 +30,7 @@ jwt:
 
 
 server:
-  port: 8081
+  port: 8080
 
 maintenance:
   monthly-amount: 500.00

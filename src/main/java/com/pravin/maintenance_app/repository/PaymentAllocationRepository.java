@@ -46,4 +46,13 @@ public interface PaymentAllocationRepository
     List<Object[]> getVerifiedAmountByRoomIdGroupedByMaintenanceId(
             @Param("roomId") Long roomId
     );
+
+    @Query("""
+            SELECT pa.maintenance.id, COALESCE(SUM(pa.amount), 0)
+            FROM PaymentAllocation pa
+            WHERE pa.payment.status = com.pravin.maintenance_app.ENUM.PaymentStatus.VERIFIED
+            AND pa.maintenance.room.maintenanceExempt = false
+            GROUP BY pa.maintenance.id
+            """)
+    List<Object[]> getVerifiedAmountGroupedByMaintenanceId();
 }

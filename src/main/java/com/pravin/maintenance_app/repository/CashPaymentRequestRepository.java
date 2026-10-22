@@ -19,4 +19,6 @@ public interface CashPaymentRequestRepository
     List<CashPaymentRequest> findByStatus(
             CashPaymentRequestStatus status
     );
+
+    long countByStatus(CashPaymentRequestStatus status);
 }
