@@ -35,4 +35,15 @@ public interface PaymentAllocationRepository
     BigDecimal getVerifiedAmountByPaymentId(
             @Param("paymentId") Long paymentId
     );
+
+    @Query("""
+            SELECT pa.maintenance.id, COALESCE(SUM(pa.amount), 0)
+            FROM PaymentAllocation pa
+            WHERE pa.maintenance.room.id = :roomId
+            AND pa.payment.status = com.pravin.maintenance_app.ENUM.PaymentStatus.VERIFIED
+            GROUP BY pa.maintenance.id
+            """)
+    List<Object[]> getVerifiedAmountByRoomIdGroupedByMaintenanceId(
+            @Param("roomId") Long roomId
+    );
 }

@@ -1,5 +1,6 @@
 package com.pravin.maintenance_app.controller;
 
+import com.pravin.maintenance_app.dto.UserDashboardResponse;
 import com.pravin.maintenance_app.dto.UserResponse;
 import com.pravin.maintenance_app.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,19 @@ public class UserController {
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         UserResponse response = userService.getUserById(id);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+            summary = "Get resident dashboard",
+            description = "Retrieves the authenticated resident's dashboard details including room, maintenance rate, outstanding dues, current month maintenance, and most recent payment. The resident is derived from the authenticated JWT principal.",
+            security = @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponse(responseCode = "200", description = "Returned successfully")
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @GetMapping("/me/dashboard")
+    public ResponseEntity<UserDashboardResponse> getUserDashboard() {
+        UserDashboardResponse response = userService.getUserDashboard();
         return ResponseEntity.ok(response);
     }
 }

@@ -2,18 +2,34 @@ package com.pravin.maintenance_app.service;
 
 import com.pravin.maintenance_app.exception.ResourceNotFoundException;
 import com.pravin.maintenance_app.exception.BusinessValidationException;
+import com.pravin.maintenance_app.ENUM.MaintenanceStatus;
 import com.pravin.maintenance_app.ENUM.Role;
 import com.pravin.maintenance_app.ENUM.UserStatus;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.security.SecureRandom;
+import java.time.YearMonth;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
+import com.pravin.maintenance_app.config.MaintenanceProperties;
 import com.pravin.maintenance_app.dto.AdminResetPasswordResponse;
 import com.pravin.maintenance_app.dto.ChangePasswordRequest;
 import com.pravin.maintenance_app.dto.ChangePasswordResponse;
+import com.pravin.maintenance_app.dto.UserDashboardResponse;
 import com.pravin.maintenance_app.dto.UserRegistrationRequest;
 import com.pravin.maintenance_app.dto.UserResponse;
+import com.pravin.maintenance_app.entity.Maintenance;
+import com.pravin.maintenance_app.entity.Payment;
 import com.pravin.maintenance_app.entity.Room;
 import com.pravin.maintenance_app.entity.User;
 import com.pravin.maintenance_app.mapper.UserMapper;
+import com.pravin.maintenance_app.repository.MaintenanceRepository;
+import com.pravin.maintenance_app.repository.PaymentAllocationRepository;
+import com.pravin.maintenance_app.repository.PaymentRepository;
 import com.pravin.maintenance_app.repository.UserRepository;
 import com.pravin.maintenance_app.security.CurrentUserService;
 import org.springframework.security.access.AccessDeniedException;
@@ -31,6 +47,10 @@ public class UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUserService currentUserService;
+    private final MaintenanceRepository maintenanceRepository;
+    private final PaymentRepository paymentRepository;
+    private final PaymentAllocationRepository paymentAllocationRepository;
+    private final MaintenanceProperties maintenanceProperties;
 
     public UserResponse registerUser(@Valid UserRegistrationRequest request) {
 
@@ -141,5 +161,94 @@ public class UserService {
         userRepository.save(user);
 
         return new ChangePasswordResponse("Password changed successfully.");
+    }
+
+    public UserDashboardResponse getUserDashboard() {
+        User currentUser = currentUserService.getCurrentUser();
+        Room room = currentUser.getRoom();
+        if (room == null) {
+            throw new BusinessValidationException("User does not have an assigned room");
+        }
+
+        BigDecimal configuredRate = maintenanceProperties.getMonthlyAmount() != null
+                ? maintenanceProperties.getMonthlyAmount().setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO.setScale(2);
+
+        BigDecimal outstandingBalance = BigDecimal.ZERO.setScale(2);
+        UserDashboardResponse.CurrentMaintenanceDto currentMaintenanceDto = null;
+
+        if (!room.isMaintenanceExempt()) {
+            List<Maintenance> maintenanceList = maintenanceRepository.findByRoomId(room.getId());
+            if (!maintenanceList.isEmpty()) {
+                Map<Long, BigDecimal> allocatedMap = Collections.emptyMap();
+                List<Object[]> allocationRows = paymentAllocationRepository
+                        .getVerifiedAmountByRoomIdGroupedByMaintenanceId(room.getId());
+                if (allocationRows != null && !allocationRows.isEmpty()) {
+                    allocatedMap = new HashMap<>();
+                    for (Object[] row : allocationRows) {
+                        Long maintenanceId = (Long) row[0];
+                        BigDecimal allocatedAmount = row[1] instanceof BigDecimal b ? b : new BigDecimal(row[1].toString());
+                        allocatedMap.put(maintenanceId, allocatedAmount);
+                    }
+                }
+
+                BigDecimal totalOutstanding = BigDecimal.ZERO;
+                YearMonth currentMonth = YearMonth.now();
+
+                for (Maintenance m : maintenanceList) {
+                    BigDecimal allocated = allocatedMap.getOrDefault(m.getId(), BigDecimal.ZERO);
+
+                    if (m.getStatus() != MaintenanceStatus.PAID) {
+                        BigDecimal remaining = m.getAmount().subtract(allocated);
+                        if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+                            totalOutstanding = totalOutstanding.add(remaining);
+                        }
+                    }
+
+                    if (currentMonth.equals(m.getBillingMonth())) {
+                        MaintenanceStatus status = m.getStatus();
+                        if (status != MaintenanceStatus.PAID) {
+                            if (allocated.compareTo(m.getAmount()) >= 0) {
+                                status = MaintenanceStatus.PAID;
+                            } else if (allocated.compareTo(BigDecimal.ZERO) > 0) {
+                                status = MaintenanceStatus.PARTIALLY_PAID;
+                            }
+                        }
+                        currentMaintenanceDto = new UserDashboardResponse.CurrentMaintenanceDto(
+                                m.getBillingMonth(),
+                                m.getAmount().setScale(2, RoundingMode.HALF_UP),
+                                status
+                        );
+                    }
+                }
+                outstandingBalance = totalOutstanding.setScale(2, RoundingMode.HALF_UP);
+            }
+        }
+
+        UserDashboardResponse.RecentPaymentDto recentPaymentDto = null;
+        Optional<Payment> recentPaymentOpt = paymentRepository
+                .findFirstByRoomIdOrderByCreatedAtDescIdDesc(room.getId());
+        if (recentPaymentOpt.isPresent()) {
+            Payment payment = recentPaymentOpt.get();
+            BigDecimal paymentAmount = payment.getAmount() != null
+                    ? payment.getAmount().setScale(2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO.setScale(2);
+            recentPaymentDto = new UserDashboardResponse.RecentPaymentDto(
+                    payment.getId(),
+                    paymentAmount,
+                    payment.getMethod(),
+                    payment.getStatus(),
+                    payment.getCreatedAt()
+            );
+        }
+
+        return new UserDashboardResponse(
+                currentUser.getName(),
+                room.getRoomNumber(),
+                configuredRate,
+                outstandingBalance,
+                currentMaintenanceDto,
+                recentPaymentDto
+        );
     }
 }
