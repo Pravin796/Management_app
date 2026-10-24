@@ -50,8 +50,7 @@ public class SecurityConfig {
                                                                 "/api/cash-payments/admin/pending",
                                                                 "/api/cash-payments/*/verify",
                                                                 "/api/cash-payments/*/reject",
-                                                                "/api/payments/*/verify",
-                                                                "/api/payments/room/**")
+                                                                "/api/payments/*/verify")
                                                 .hasRole("ADMIN")
 
                                                 .requestMatchers(

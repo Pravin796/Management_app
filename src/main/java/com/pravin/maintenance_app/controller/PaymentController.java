@@ -67,19 +67,7 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
-    // Temporary ID-based alternative for /my since Spring Security is not yet
-    // implemented
-    @Operation(summary = "Get payments by room", description = "Retrieves payments for a specific room. (Temporary ID-based alternative)")
-    @ApiResponse(responseCode = "200", description = "Returned successfully")
-    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
-    @GetMapping("/room/{roomId}")
-    public ResponseEntity<List<PaymentResponse>> getPaymentsByRoom(@PathVariable Long roomId) {
-        List<Payment> payments = paymentService.getPaymentsByRoom(roomId);
-        List<PaymentResponse> responses = payments.stream()
-                .map(paymentMapper::toResponse)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(responses);
-    }
+
 
     @Operation(summary = "Verify payment (ADMIN)", description = "Verifies a payment. This endpoint requires an authenticated user with ADMIN role.")
     @ApiResponse(responseCode = "200", description = "Verified successfully")

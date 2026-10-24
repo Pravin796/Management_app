@@ -74,6 +74,11 @@ public class MaintenanceService {
 
         public Maintenance createMaintenance(
                         CreateMaintenanceRequest request) {
+                User currentUser = currentUserService.getCurrentUser();
+                if (currentUser.getRole() != Role.ADMIN) {
+                        throw new AccessDeniedException("Only ADMIN can create maintenance records");
+                }
+
                 Room room = roomService.getRoomById(request.getRoomId());
 
                 if (room.isMaintenanceExempt()) {

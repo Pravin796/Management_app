@@ -76,12 +76,6 @@ public class PaymentService {
     return payment;
 }
 
-    public List<Payment> getPaymentsByRoom(Long roomId) {
-
-        roomService.getRoomById(roomId);
-
-        return paymentRepository.findByRoomId(roomId);
-    }
 
     public List<Payment> getPendingPaymentsByRoom(Long roomId) {
 

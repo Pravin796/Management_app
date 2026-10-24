@@ -9,9 +9,9 @@ spring:
       max-file-size: 50MB
       max-request-size: 50MB
   datasource:
-    url: jdbc:postgresql://localhost:5432/residency_management
-    username: postgres
-    password: Pravin@69
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/residency_management}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -24,23 +24,23 @@ spring:
     baseline-on-migrate: true
     
 jwt:
-  secret: 4y+3rvem1icxOqAP8+THNo3fI760btfh8A0lrW6+P7Y=
+  secret: ${JWT_SECRET:4y+3rvem1icxOqAP8+THNo3fI760btfh8A0lrW6+P7Y=}
   # expiration: 1000
-  expiration: 86400000
+  expiration: ${JWT_EXPIRATION:86400000}
 
 
 server:
   port: 8080
 
 maintenance:
-  monthly-amount: 500.00
+  monthly-amount: ${MAINTENANCE_MONTHLY_AMOUNT:500.00}
 
 app:
   admin:
-    mobile-number: 9925708020
-    password: Pradyuman
-    name: PRADYUMAN
-    room-number: "207"
+    mobile-number: ${ADMIN_MOBILE_NUMBER:9925708020}
+    password: ${ADMIN_PASSWORD:Pradyuman}
+    name: ${ADMIN_NAME:PRADYUMAN}
+    room-number: ${ADMIN_ROOM_NUMBER:"207"}
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:dufr7et1h}

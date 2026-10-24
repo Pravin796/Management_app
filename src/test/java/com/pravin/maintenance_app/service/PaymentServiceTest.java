@@ -16,6 +16,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.security.access.AccessDeniedException;
+
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -105,5 +107,106 @@ public class PaymentServiceTest {
         Payment updatedPayment = paymentService.updatePaymentProof(1L, request);
         
         assertEquals("maintenance-app/payment-screenshots/abc", updatedPayment.getScreenshotPublicId());
+    }
+
+    @Test
+    void testAdminCanAccessPaymentForAnyRoom() {
+        Payment payment = new Payment();
+        payment.setId(10L);
+        Room room = new Room();
+        room.setId(20L);
+        payment.setRoom(room);
+
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+
+        Payment result = paymentService.getPaymentById(10L);
+        assertNotNull(result);
+        assertEquals(10L, result.getId());
+    }
+
+    @Test
+    void testResidentCanAccessPaymentForOwnRoom() {
+        Payment payment = new Payment();
+        payment.setId(10L);
+        Room room = new Room();
+        room.setId(20L);
+        payment.setRoom(room);
+
+        User resident = new User();
+        resident.setRole(Role.USER);
+        Room residentRoom = new Room();
+        residentRoom.setId(20L);
+        resident.setRoom(residentRoom);
+
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
+        when(currentUserService.getCurrentUser()).thenReturn(resident);
+
+        Payment result = paymentService.getPaymentById(10L);
+        assertNotNull(result);
+        assertEquals(10L, result.getId());
+    }
+
+    @Test
+    void testResidentCannotAccessPaymentForDifferentRoom_ThrowsAccessDeniedException() {
+        Payment payment = new Payment();
+        payment.setId(10L);
+        Room room = new Room();
+        room.setId(20L);
+        payment.setRoom(room);
+
+        User resident = new User();
+        resident.setRole(Role.USER);
+        Room otherRoom = new Room();
+        otherRoom.setId(99L);
+        resident.setRoom(otherRoom);
+
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
+        when(currentUserService.getCurrentUser()).thenReturn(resident);
+
+        AccessDeniedException ex = assertThrows(
+                AccessDeniedException.class,
+                () -> paymentService.getPaymentById(10L)
+        );
+        assertEquals("You are not allowed to access this payment", ex.getMessage());
+    }
+
+    @Test
+    void testAdminCanVerifyPendingPayment() {
+        Payment payment = new Payment();
+        payment.setId(10L);
+        payment.setStatus(PaymentStatus.PENDING);
+        Room room = new Room();
+        room.setId(20L);
+        payment.setRoom(room);
+
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        Payment verified = paymentService.verifyPayment(10L);
+        assertEquals(PaymentStatus.VERIFIED, verified.getStatus());
+        assertNotNull(verified.getVerifiedAt());
+    }
+
+    @Test
+    void testResidentCannotVerifyPayment_ThrowsAccessDeniedException() {
+        User resident = new User();
+        resident.setRole(Role.USER);
+
+        when(currentUserService.getCurrentUser()).thenReturn(resident);
+
+        AccessDeniedException ex = assertThrows(
+                AccessDeniedException.class,
+                () -> paymentService.verifyPayment(10L)
+        );
+        assertEquals("Only ADMIN can verify payments", ex.getMessage());
+        verify(paymentRepository, never()).save(any());
     }
 }

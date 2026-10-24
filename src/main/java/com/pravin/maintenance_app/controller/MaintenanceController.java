@@ -29,10 +29,11 @@ public class MaintenanceController {
     private final MaintenanceService maintenanceService;
     private final MaintenanceMapper maintenanceMapper;
 
-    @Operation(summary = "Create maintenance", description = "Creates a new maintenance record")
+    @Operation(summary = "Create maintenance (ADMIN)", description = "Creates a new maintenance record. Requires ADMIN role.")
     @ApiResponse(responseCode = "201", description = "Created successfully")
     @ApiResponse(responseCode = "400", description = "Invalid request", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     @PostMapping
     public ResponseEntity<MaintenanceResponse> createMaintenance(
             @Valid @RequestBody CreateMaintenanceRequest request) {

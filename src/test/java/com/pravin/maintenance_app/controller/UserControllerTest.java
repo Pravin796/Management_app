@@ -15,6 +15,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import com.pravin.maintenance_app.dto.UserResponse;
+import org.springframework.security.access.AccessDeniedException;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -94,5 +97,66 @@ public class UserControllerTest {
                 .andExpect(jsonPath("$.recentPayment.amount").value(500.00))
                 .andExpect(jsonPath("$.recentPayment.method").value("ONLINE"))
                 .andExpect(jsonPath("$.recentPayment.status").value("VERIFIED"));
+    }
+
+    @Test
+    void testGetUserById_Unauthenticated_Returns401() throws Exception {
+        mockMvc.perform(get("/api/users/1"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("Authentication required"));
+    }
+
+    @Test
+    @WithMockUser(username = "residentUser", roles = "USER")
+    void testGetUserById_SelfAccess_Returns200AndUser() throws Exception {
+        UserResponse mockUser = new UserResponse();
+        mockUser.setId(1L);
+        mockUser.setName("John Resident");
+        mockUser.setRoomNumber("101");
+        mockUser.setMobileNumber("9876543210");
+        mockUser.setRole("USER");
+        mockUser.setStatus("ACTIVE");
+
+        when(userService.getUserById(1L)).thenReturn(mockUser);
+
+        mockMvc.perform(get("/api/users/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("John Resident"))
+                .andExpect(jsonPath("$.roomNumber").value("101"))
+                .andExpect(jsonPath("$.role").value("USER"));
+    }
+
+    @Test
+    @WithMockUser(username = "residentUser", roles = "USER")
+    void testGetUserById_OtherUserForbidden_Returns403() throws Exception {
+        when(userService.getUserById(2L))
+                .thenThrow(new AccessDeniedException("You are not allowed to access this user"));
+
+        mockMvc.perform(get("/api/users/2"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message").value("You are not allowed to access this user"));
+    }
+
+    @Test
+    @WithMockUser(username = "adminUser", roles = "ADMIN")
+    void testGetUserById_AdminAccess_Returns200AndUser() throws Exception {
+        UserResponse mockUser = new UserResponse();
+        mockUser.setId(2L);
+        mockUser.setName("Jane Resident");
+        mockUser.setRoomNumber("102");
+        mockUser.setMobileNumber("9876543211");
+        mockUser.setRole("USER");
+        mockUser.setStatus("ACTIVE");
+
+        when(userService.getUserById(2L)).thenReturn(mockUser);
+
+        mockMvc.perform(get("/api/users/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(2))
+                .andExpect(jsonPath("$.name").value("Jane Resident"))
+                .andExpect(jsonPath("$.roomNumber").value("102"));
     }
 }
