@@ -50,7 +50,9 @@ public class SecurityConfig {
                                                                 "/api/cash-payments/admin/pending",
                                                                 "/api/cash-payments/*/verify",
                                                                 "/api/cash-payments/*/reject",
-                                                                "/api/payments/*/verify")
+                                                                "/api/payments/admin/pending",
+                                                                "/api/payments/*/verify",
+                                                                "/api/payments/*/reject")
                                                 .hasRole("ADMIN")
 
                                                 .requestMatchers(
@@ -60,6 +62,14 @@ public class SecurityConfig {
 
                                                 .requestMatchers(HttpMethod.POST,
                                                                 "/api/payment-allocations")
+                                                .hasRole("ADMIN")
+
+                                                .requestMatchers(HttpMethod.POST,
+                                                                "/api/rooms")
+                                                .hasRole("ADMIN")
+
+                                                .requestMatchers(HttpMethod.PATCH,
+                                                                "/api/rooms/*/exemption")
                                                 .hasRole("ADMIN")
                                                 
                                                 .requestMatchers(

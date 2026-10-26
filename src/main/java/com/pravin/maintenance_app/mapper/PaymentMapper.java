@@ -17,6 +17,7 @@ public interface PaymentMapper {
     @Mapping(target = "updatedAt", ignore = true)
     Payment toEntity(CreatePaymentRequest request);
 
+    @Mapping(target = "roomId", source = "room.id")
     @Mapping(target = "roomNumber", source = "room.roomNumber")
     PaymentResponse toResponse(Payment payment);
 }

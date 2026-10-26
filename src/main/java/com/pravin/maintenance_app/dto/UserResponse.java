@@ -3,6 +3,7 @@ package com.pravin.maintenance_app.dto;
 public class UserResponse {
 
     private Long id;
+    private Long roomId;
     private String roomNumber;
     private String name;
     private String mobileNumber;
@@ -10,6 +11,14 @@ public class UserResponse {
     private String status;
 
     public UserResponse() {
+    }
+
+    public Long getRoomId() {
+        return roomId;
+    }
+
+    public void setRoomId(Long roomId) {
+        this.roomId = roomId;
     }
 
     public Long getId() {

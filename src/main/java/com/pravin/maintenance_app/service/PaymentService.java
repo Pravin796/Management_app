@@ -76,6 +76,19 @@ public class PaymentService {
     return payment;
 }
 
+    public List<Payment> getPaymentsByRoom(Long roomId) {
+        roomService.getRoomById(roomId);
+
+        User currentUser = currentUserService.getCurrentUser();
+
+        if (currentUser.getRole() != Role.ADMIN
+                && !currentUser.getRoom().getId().equals(roomId)) {
+            throw new AccessDeniedException(
+                    "You are not allowed to access payments for this room");
+        }
+
+        return paymentRepository.findByRoomId(roomId);
+    }
 
     public List<Payment> getPendingPaymentsByRoom(Long roomId) {
 
@@ -148,5 +161,34 @@ public class PaymentService {
         User user = currentUserService.getCurrentUser();
         Long roomId = user.getRoom().getId();
         return paymentRepository.findByRoomId(roomId);
+    }
+
+    public List<Payment> getAllPendingPayments() {
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only ADMIN can access all pending payments");
+        }
+
+        return paymentRepository.findByStatus(PaymentStatus.PENDING);
+    }
+
+    @Transactional
+    public Payment rejectPayment(Long paymentId) {
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only ADMIN can reject payments");
+        }
+
+        Payment payment = getPaymentById(paymentId);
+
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new BusinessValidationException(
+                    "Only pending payments can be rejected");
+        }
+
+        payment.setStatus(PaymentStatus.REJECTED);
+        payment.setUpdatedAt(LocalDateTime.now());
+
+        return paymentRepository.save(payment);
     }
 }

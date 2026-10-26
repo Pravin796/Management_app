@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class CashPaymentRequestResponse {
     private Long id;
+    private Long roomId;
     private String roomNumber;
     private BigDecimal amount;
     private CashPaymentRequestStatus status;

@@ -67,7 +67,18 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
-
+    @Operation(summary = "Get payments by room", description = "Retrieves payments for a specific room. Requires ADMIN role or Room Owner.")
+    @ApiResponse(responseCode = "200", description = "Returned successfully")
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Access denied", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @GetMapping("/room/{roomId}")
+    public ResponseEntity<List<PaymentResponse>> getPaymentsByRoom(@PathVariable Long roomId) {
+        List<Payment> payments = paymentService.getPaymentsByRoom(roomId);
+        List<PaymentResponse> responses = payments.stream()
+                .map(paymentMapper::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
+    }
 
     @Operation(summary = "Verify payment (ADMIN)", description = "Verifies a payment. This endpoint requires an authenticated user with ADMIN role.")
     @ApiResponse(responseCode = "200", description = "Verified successfully")
@@ -95,6 +106,31 @@ public class PaymentController {
             @PathVariable Long id,
             @Valid @RequestBody com.pravin.maintenance_app.dto.UpdatePaymentProofRequest request) {
         Payment payment = paymentService.updatePaymentProof(id, request);
+        PaymentResponse response = paymentMapper.toResponse(payment);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get all pending payments (ADMIN)", description = "Retrieves all pending payments. Requires ADMIN role.")
+    @ApiResponse(responseCode = "200", description = "Returned successfully")
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @GetMapping("/admin/pending")
+    public ResponseEntity<List<PaymentResponse>> getAllPendingPayments() {
+        List<Payment> payments = paymentService.getAllPendingPayments();
+        List<PaymentResponse> responses = payments.stream()
+                .map(paymentMapper::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
+    }
+
+    @Operation(summary = "Reject payment (ADMIN)", description = "Rejects a payment. Requires ADMIN role.")
+    @ApiResponse(responseCode = "200", description = "Rejected successfully")
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Not found", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<PaymentResponse> rejectPayment(@PathVariable Long id) {
+        Payment payment = paymentService.rejectPayment(id);
         PaymentResponse response = paymentMapper.toResponse(payment);
         return ResponseEntity.ok(response);
     }

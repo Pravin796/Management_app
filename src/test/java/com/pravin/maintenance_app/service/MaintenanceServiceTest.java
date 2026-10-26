@@ -20,6 +20,7 @@ import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
 import java.time.YearMonth;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -239,5 +240,81 @@ public class MaintenanceServiceTest {
 
         assertEquals("You are not allowed to access maintenance for this room", ex.getMessage());
         verify(maintenanceRepository, never()).findByRoomIdAndBillingMonth(any(), any());
+    }
+
+    @Test
+    void testGetMaintenanceByRoomAndMonth_AdminAllowed() {
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        Maintenance maintenance = new Maintenance();
+        maintenance.setId(50L);
+
+        YearMonth month = YearMonth.of(2026, 10);
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(maintenanceRepository.findByRoomIdAndBillingMonth(20L, month)).thenReturn(Optional.of(maintenance));
+
+        Maintenance result = maintenanceService.getMaintenanceByRoomAndMonth(20L, month);
+        assertNotNull(result);
+        assertEquals(50L, result.getId());
+    }
+
+    @Test
+    void testGetMaintenanceByRoomAndMonth_ResidentOwnRoomAllowed() {
+        Room myRoom = new Room();
+        myRoom.setId(20L);
+
+        User resident = new User();
+        resident.setRole(Role.USER);
+        resident.setRoom(myRoom);
+
+        Maintenance maintenance = new Maintenance();
+        maintenance.setId(50L);
+
+        YearMonth month = YearMonth.of(2026, 10);
+        when(currentUserService.getCurrentUser()).thenReturn(resident);
+        when(maintenanceRepository.findByRoomIdAndBillingMonth(20L, month)).thenReturn(Optional.of(maintenance));
+
+        Maintenance result = maintenanceService.getMaintenanceByRoomAndMonth(20L, month);
+        assertNotNull(result);
+        assertEquals(50L, result.getId());
+    }
+
+    @Test
+    void testGetMaintenanceByRoom_AdminAllowed() {
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        Maintenance m = new Maintenance();
+        m.setId(10L);
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(maintenanceRepository.findByRoomId(20L)).thenReturn(List.of(m));
+
+        List<Maintenance> results = maintenanceService.getMaintenanceByRoom(20L);
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        verify(maintenanceRepository).findByRoomId(20L);
+    }
+
+    @Test
+    void testGetMaintenanceByRoom_ResidentOtherRoomForbidden() {
+        Room myRoom = new Room();
+        myRoom.setId(20L);
+
+        User resident = new User();
+        resident.setRole(Role.USER);
+        resident.setRoom(myRoom);
+
+        when(currentUserService.getCurrentUser()).thenReturn(resident);
+
+        AccessDeniedException ex = assertThrows(
+                AccessDeniedException.class,
+                () -> maintenanceService.getMaintenanceByRoom(99L)
+        );
+
+        assertEquals("You are not allowed to access maintenance for this room", ex.getMessage());
+        verify(maintenanceRepository, never()).findByRoomId(any());
     }
 }

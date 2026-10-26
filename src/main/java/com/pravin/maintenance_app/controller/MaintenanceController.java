@@ -79,4 +79,18 @@ public class MaintenanceController {
 
         return ResponseEntity.ok(response);
     }
+
+    @Operation(summary = "Get maintenance records by room", description = "Returns maintenance records for a specific room. Requires ADMIN role or Room Owner.")
+    @ApiResponse(responseCode = "200", description = "Returned successfully")
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Access denied", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @GetMapping("/room/{roomId}")
+    public ResponseEntity<List<MaintenanceResponse>> getMaintenanceByRoom(@PathVariable Long roomId) {
+        List<MaintenanceResponse> response = maintenanceService.getMaintenanceByRoom(roomId)
+                .stream()
+                .map(maintenanceMapper::toResponse)
+                .toList();
+
+        return ResponseEntity.ok(response);
+    }
 }

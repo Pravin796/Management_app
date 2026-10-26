@@ -25,5 +25,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             String transactionReference
     );
 
+    List<Payment> findByStatus(PaymentStatus status);
+
     Optional<Payment> findFirstByRoomIdOrderByCreatedAtDescIdDesc(Long roomId);
 }

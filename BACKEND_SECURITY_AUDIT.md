@@ -1,8 +1,8 @@
 # Backend Security and Authorization Audit
 
-**Last Audit Verification:** 2026-10-24  
+**Last Audit Verification:** 2026-10-26  
 **Audit Scope:** Authentication, Authorization, Ownership Controls (BOLA/IDOR), Defense-in-Depth, and Deprecated Endpoints  
-**Overall Status:** **ALL FINDINGS RESOLVED (Verified with 70/70 Passing Tests)**
+**Overall Status:** **ALL FINDINGS RESOLVED (Verified with 91/91 Passing Tests)**
 
 ---
 
@@ -157,10 +157,20 @@
 ### Controller: PaymentController
 - **HTTP method:** `GET`
 - **Path:** `/api/payments/room/{roomId}`
-- **Original Status:** Marked as temporary ID-based alternative for `/my` before Spring Security was implemented.
-- **Action Taken:** **DEPRECATED & REMOVED**. Audited the entire frontend (`frontend-maintenance-app`) and backend (`management_app`): zero callers existed. Removed endpoint method in `PaymentController`, removed unused `getPaymentsByRoom` in `PaymentService`, and removed pattern matcher in `SecurityConfig`.
-- **Compatibility Impact:** Zero breaking changes on frontend (resident dashboard uses `/api/payments/my` or `/api/users/me/dashboard`). External manual callers receive standard HTTP 404.
+- **Current access:** Authenticated
+- **Expected access:** `ADMIN` or Room Owner
+- **Ownership protection:** **Enforced.** `PaymentService.getPaymentsByRoom` checks `currentUser.getRole() != Role.ADMIN && !currentUser.getRoom().getId().equals(roomId)`. Unauthorized residents receive `AccessDeniedException` (HTTP 403).
+- **Business validation:** Validates room existence via `roomService.getRoomById(roomId)`.
 - **Status:** **RESOLVED**
+- **Code Reference:** `com.pravin.maintenance_app.service.PaymentService.getPaymentsByRoom(Long)`, `com.pravin.maintenance_app.controller.PaymentController.getPaymentsByRoom(Long)`
+- **Verified Tests:**
+  - `PaymentServiceTest.testGetPaymentsByRoom_AdminAllowed` (Passed)
+  - `PaymentServiceTest.testGetPaymentsByRoom_ResidentOwnRoomAllowed` (Passed)
+  - `PaymentServiceTest.testGetPaymentsByRoom_ResidentOtherRoomForbidden_ThrowsAccessDeniedException` (Passed)
+  - `PaymentControllerTest.testGetPaymentsByRoom_Unauthenticated_Returns401` (Passed)
+  - `PaymentControllerTest.testGetPaymentsByRoom_ResidentOwnRoom_Returns200` (Passed)
+  - `PaymentControllerTest.testGetPaymentsByRoom_ResidentOtherRoom_Returns403` (Passed)
+  - `PaymentControllerTest.testGetPaymentsByRoom_Admin_Returns200` (Passed)
 
 ### Controller: PaymentController
 - **HTTP method:** `PUT`
@@ -172,10 +182,13 @@
   - Service Level: `PaymentService.verifyPayment` checks `currentUser.getRole() != Role.ADMIN` and throws `AccessDeniedException`.
 - **Business validation:** Ensures payment status is `PENDING`, updates status to `VERIFIED` and sets `verifiedAt`.
 - **Status:** **RESOLVED**
-- **Code Reference:** `com.pravin.maintenance_app.service.PaymentService.verifyPayment(Long)` (lines 125–144)
+- **Code Reference:** `com.pravin.maintenance_app.service.PaymentService.verifyPayment(Long)` (lines 138–157)
 - **Verified Tests:**
   - `PaymentServiceTest.testAdminCanVerifyPendingPayment` (Passed)
   - `PaymentServiceTest.testResidentCannotVerifyPayment_ThrowsAccessDeniedException` (Passed)
+  - `PaymentControllerTest.testVerifyPayment_Admin_Returns200` (Passed)
+  - `PaymentControllerTest.testVerifyPayment_Resident_Returns403` (Passed)
+  - `PaymentControllerTest.testVerifyPayment_Unauthenticated_Returns401` (Passed)
 
 ### Controller: PaymentController
 - **HTTP method:** `PATCH`
@@ -307,6 +320,9 @@
 - **Ownership protection:** **Enforced.** Calls `maintenanceService.getMaintenanceById(maintenanceId)` which enforces ownership and role checks.
 - **Status:** **RESOLVED**
 - **Code Reference:** `com.pravin.maintenance_app.service.PaymentAllocationService.getAllocationsByMaintenance(Long)`
+- **Verified Tests:**
+  - `PaymentAllocationServiceTest.testGetAllocationsByMaintenance_CallsMaintenanceServiceToEnforceOwnership` (Passed)
+  - `PaymentAllocationServiceTest.testGetAllocationsByMaintenance_WhenMaintenanceServiceDeniesAccess_ThrowsAccessDeniedException` (Passed)
 
 ---
 
@@ -316,11 +332,12 @@
 | :--- | :---: | :---: | :--- | :--- |
 | `GET /api/users/{id}` BOLA | **CRITICAL** | **RESOLVED** | Role / `currentUser.id` check in `UserService` | `UserControllerTest` (4 tests), `UserServiceAuthorizationTest` (4 tests) |
 | `GET /api/payment-allocations/payment/{id}` BOLA | **CRITICAL** | **RESOLVED** | Delegated to `PaymentService.getPaymentById` | `PaymentAllocationServiceTest` (2 tests) |
-| `PUT /api/payments/{id}/verify` Defense-in-depth | **HIGH** | **RESOLVED** | `currentUser.getRole() != Role.ADMIN` in service | `PaymentServiceTest` (2 tests) |
+| `GET /api/payment-allocations/maintenance/{id}` BOLA | **CRITICAL** | **RESOLVED** | Delegated to `MaintenanceService.getMaintenanceById` | `PaymentAllocationServiceTest` (2 tests) |
+| `PUT /api/payments/{id}/verify` Defense-in-depth | **HIGH** | **RESOLVED** | `currentUser.getRole() != Role.ADMIN` in service | `PaymentServiceTest` (2 tests), `PaymentControllerTest` (3 tests) |
 | `POST /api/cash-payments/{id}/verify` Defense-in-depth | **HIGH** | **RESOLVED** | `currentUser.getRole() != Role.ADMIN` in service | `CashPaymentRequestServiceTest` (2 tests) |
 | `POST /api/cash-payments/{id}/reject` Defense-in-depth | **HIGH** | **RESOLVED** | `currentUser.getRole() != Role.ADMIN` in service | `CashPaymentRequestServiceTest` (2 tests) |
 | `POST /api/payment-allocations` Defense-in-depth | **HIGH** | **RESOLVED** | `currentUser.getRole() != Role.ADMIN` in service | `PaymentAllocationServiceTest` (2 tests) |
 | `POST /api/maintenance` Defense-in-depth | **HIGH** | **RESOLVED** | `currentUser.getRole() != Role.ADMIN` in service | `MaintenanceServiceTest` (4 tests) |
+| `GET /api/payments/room/{roomId}` Room Ownership BOLA | **HIGH** | **RESOLVED** | Role / room ownership check (`currentUser.getRoom().getId().equals(roomId)`) in `PaymentService` | `PaymentServiceTest` (3 tests), `PaymentControllerTest` (4 tests) |
 | `GET /api/cash-payments/admin/pending` Defense-in-depth | **MEDIUM** | **RESOLVED** | `currentUser.getRole() != Role.ADMIN` in service | `CashPaymentRequestServiceTest` (2 tests) |
-| `GET /api/payments/room/{roomId}` Deprecated Endpoint | **MEDIUM** | **RESOLVED** | Dead temporary endpoint removed from controller, service & config | Verified 0 usage across frontend/backend; `mvn test` clean |
 | `GET /api/rooms/{roomNumber}` Info Disclosure | **LOW** | **RESOLVED** | Verified `RoomResponse` leaks no PII | Code audit of DTO fields |

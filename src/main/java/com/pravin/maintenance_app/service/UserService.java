@@ -107,7 +107,32 @@ public class UserService {
         return userMapper.toResponse(user);
     }
 
+    public List<UserResponse> getAllUsers() {
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only admins can view all users");
+        }
+        return userRepository.findAll().stream()
+                .map(userMapper::toResponse)
+                .toList();
+    }
+
+    public UserResponse getUserByRoomId(Long roomId) {
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only admins can view resident details by room");
+        }
+        return userRepository.findByRoomId(roomId)
+                .map(userMapper::toResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("No resident found for room ID: " + roomId));
+    }
+
     public AdminResetPasswordResponse adminResetPassword(Long userId) {
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only admins can reset user passwords");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
@@ -123,7 +148,7 @@ public class UserService {
 
         return AdminResetPasswordResponse.builder()
                 .userId(user.getId())
-                .roomNumber(user.getRoom().getRoomNumber())
+                .roomNumber(user.getRoom() != null ? user.getRoom().getRoomNumber() : null)
                 .temporaryPassword(tempPassword)
                 .message("Password reset successfully. User must change the password after login.")
                 .build();

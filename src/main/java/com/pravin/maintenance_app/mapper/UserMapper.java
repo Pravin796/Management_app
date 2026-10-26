@@ -20,5 +20,6 @@ public interface UserMapper {
     User toEntity(@Valid UserRegistrationRequest request);
 
     @Mapping(target = "roomNumber", source = "room.roomNumber")
+    @Mapping(target = "roomId", source = "room.id")
     UserResponse toResponse(User user);
 }

@@ -268,4 +268,64 @@ public class CashPaymentRequestServiceTest {
         assertEquals("You are not allowed to access cash payment requests for this room", ex.getMessage());
         verify(cashPaymentRequestRepository, never()).findByRoomId(any());
     }
+
+    @Test
+    void testGetRequestsByRoom_AdminAllowed() {
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        CashPaymentRequest req = new CashPaymentRequest();
+        req.setId(1L);
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(cashPaymentRequestRepository.findByRoomId(10L)).thenReturn(List.of(req));
+
+        List<CashPaymentRequest> results = cashPaymentRequestService.getRequestsByRoom(10L);
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        verify(cashPaymentRequestRepository).findByRoomId(10L);
+    }
+
+    @Test
+    void testGetRequestsByRoom_ResidentOwnRoomAllowed() {
+        Room myRoom = new Room();
+        myRoom.setId(10L);
+
+        User resident = new User();
+        resident.setRole(Role.USER);
+        resident.setRoom(myRoom);
+
+        CashPaymentRequest req = new CashPaymentRequest();
+        req.setId(1L);
+
+        when(currentUserService.getCurrentUser()).thenReturn(resident);
+        when(cashPaymentRequestRepository.findByRoomId(10L)).thenReturn(List.of(req));
+
+        List<CashPaymentRequest> results = cashPaymentRequestService.getRequestsByRoom(10L);
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        verify(cashPaymentRequestRepository).findByRoomId(10L);
+    }
+
+    @Test
+    void testGetRequestById_AdminAllowed() {
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        Room room = new Room();
+        room.setId(10L);
+
+        CashPaymentRequest cashReq = new CashPaymentRequest();
+        cashReq.setId(1L);
+        cashReq.setRoom(room);
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(cashPaymentRequestRepository.findById(1L)).thenReturn(Optional.of(cashReq));
+
+        CashPaymentRequest result = cashPaymentRequestService.getRequestById(1L);
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+    }
 }

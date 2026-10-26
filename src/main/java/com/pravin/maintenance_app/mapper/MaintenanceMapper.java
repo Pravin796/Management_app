@@ -17,6 +17,7 @@ public interface MaintenanceMapper {
     @Mapping(target = "updatedAt", ignore = true)
     Maintenance toEntity(CreateMaintenanceRequest request);
 
+    @Mapping(target = "roomId", source = "room.id")
     @Mapping(target = "roomNumber", source = "room.roomNumber")
     MaintenanceResponse toResponse(Maintenance maintenance);
 }

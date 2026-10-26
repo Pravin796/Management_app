@@ -115,4 +115,16 @@ public class MaintenanceService {
 
                 return maintenanceRepository.findByRoomId(roomId);
         }
+
+        public List<Maintenance> getMaintenanceByRoom(Long roomId) {
+                User currentUser = currentUserService.getCurrentUser();
+
+                if (currentUser.getRole() != Role.ADMIN
+                                && !currentUser.getRoom().getId().equals(roomId)) {
+                        throw new AccessDeniedException(
+                                        "You are not allowed to access maintenance for this room");
+                }
+
+                return maintenanceRepository.findByRoomId(roomId);
+        }
 }

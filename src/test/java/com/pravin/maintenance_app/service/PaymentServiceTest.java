@@ -17,7 +17,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.security.access.AccessDeniedException;
+import com.pravin.maintenance_app.exception.BusinessValidationException;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -207,6 +209,167 @@ public class PaymentServiceTest {
                 () -> paymentService.verifyPayment(10L)
         );
         assertEquals("Only ADMIN can verify payments", ex.getMessage());
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void testGetPaymentsByRoom_AdminAllowed() {
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        Payment payment = new Payment();
+        payment.setId(10L);
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(paymentRepository.findByRoomId(20L)).thenReturn(List.of(payment));
+
+        List<Payment> results = paymentService.getPaymentsByRoom(20L);
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        verify(roomService).getRoomById(20L);
+        verify(paymentRepository).findByRoomId(20L);
+    }
+
+    @Test
+    void testGetPaymentsByRoom_ResidentOwnRoomAllowed() {
+        Room myRoom = new Room();
+        myRoom.setId(20L);
+
+        User resident = new User();
+        resident.setRole(Role.USER);
+        resident.setRoom(myRoom);
+
+        Payment payment = new Payment();
+        payment.setId(10L);
+
+        when(currentUserService.getCurrentUser()).thenReturn(resident);
+        when(paymentRepository.findByRoomId(20L)).thenReturn(List.of(payment));
+
+        List<Payment> results = paymentService.getPaymentsByRoom(20L);
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        verify(roomService).getRoomById(20L);
+        verify(paymentRepository).findByRoomId(20L);
+    }
+
+    @Test
+    void testGetPaymentsByRoom_ResidentOtherRoomForbidden_ThrowsAccessDeniedException() {
+        Room myRoom = new Room();
+        myRoom.setId(20L);
+
+        User resident = new User();
+        resident.setRole(Role.USER);
+        resident.setRoom(myRoom);
+
+        when(currentUserService.getCurrentUser()).thenReturn(resident);
+
+        AccessDeniedException ex = assertThrows(
+                AccessDeniedException.class,
+                () -> paymentService.getPaymentsByRoom(99L)
+        );
+
+        assertEquals("You are not allowed to access payments for this room", ex.getMessage());
+        verify(roomService).getRoomById(99L);
+        verify(paymentRepository, never()).findByRoomId(any());
+    }
+
+    @Test
+    void testGetAllPendingPayments_AdminAllowed() {
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        Payment p = new Payment();
+        p.setId(10L);
+        p.setStatus(PaymentStatus.PENDING);
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(paymentRepository.findByStatus(PaymentStatus.PENDING)).thenReturn(List.of(p));
+
+        List<Payment> results = paymentService.getAllPendingPayments();
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        verify(paymentRepository).findByStatus(PaymentStatus.PENDING);
+    }
+
+    @Test
+    void testGetAllPendingPayments_ResidentForbidden_ThrowsAccessDeniedException() {
+        User resident = new User();
+        resident.setRole(Role.USER);
+
+        when(currentUserService.getCurrentUser()).thenReturn(resident);
+
+        AccessDeniedException ex = assertThrows(
+                AccessDeniedException.class,
+                () -> paymentService.getAllPendingPayments()
+        );
+
+        assertEquals("Only ADMIN can access all pending payments", ex.getMessage());
+        verify(paymentRepository, never()).findByStatus(any());
+    }
+
+    @Test
+    void testRejectPayment_AdminAllowed() {
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        Payment payment = new Payment();
+        payment.setId(10L);
+        payment.setStatus(PaymentStatus.PENDING);
+        Room room = new Room();
+        room.setId(20L);
+        payment.setRoom(room);
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(i -> i.getArgument(0));
+
+        Payment result = paymentService.rejectPayment(10L);
+
+        assertNotNull(result);
+        assertEquals(PaymentStatus.REJECTED, result.getStatus());
+        verify(paymentRepository).save(any(Payment.class));
+    }
+
+    @Test
+    void testRejectPayment_ResidentForbidden_ThrowsAccessDeniedException() {
+        User resident = new User();
+        resident.setRole(Role.USER);
+
+        when(currentUserService.getCurrentUser()).thenReturn(resident);
+
+        AccessDeniedException ex = assertThrows(
+                AccessDeniedException.class,
+                () -> paymentService.rejectPayment(10L)
+        );
+
+        assertEquals("Only ADMIN can reject payments", ex.getMessage());
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void testRejectPayment_NonPending_ThrowsBusinessValidationException() {
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        Payment payment = new Payment();
+        payment.setId(10L);
+        payment.setStatus(PaymentStatus.VERIFIED);
+        Room room = new Room();
+        room.setId(20L);
+        payment.setRoom(room);
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(payment));
+
+        BusinessValidationException ex = assertThrows(
+                BusinessValidationException.class,
+                () -> paymentService.rejectPayment(10L)
+        );
+
+        assertEquals("Only pending payments can be rejected", ex.getMessage());
         verify(paymentRepository, never()).save(any());
     }
 }

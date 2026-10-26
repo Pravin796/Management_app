@@ -16,6 +16,7 @@ import java.time.YearMonth;
 @AllArgsConstructor
 public class MaintenanceResponse {
     private Long id;
+    private Long roomId;
     private String roomNumber;
     private YearMonth billingMonth;
     private BigDecimal amount;

@@ -152,4 +152,36 @@ public class PaymentAllocationServiceTest {
         assertEquals(new BigDecimal("500.00"), saved.getAmount());
         verify(paymentAllocationRepository).save(any(PaymentAllocation.class));
     }
+
+    @Test
+    void testGetAllocationsByMaintenance_CallsMaintenanceServiceToEnforceOwnership() {
+        Maintenance mockMaintenance = new Maintenance();
+        mockMaintenance.setId(20L);
+
+        when(maintenanceService.getMaintenanceById(20L)).thenReturn(mockMaintenance);
+        PaymentAllocation allocation = new PaymentAllocation();
+        allocation.setId(1L);
+        allocation.setAmount(new BigDecimal("500.00"));
+        when(paymentAllocationRepository.findByMaintenanceId(20L)).thenReturn(List.of(allocation));
+
+        List<PaymentAllocation> results = paymentAllocationService.getAllocationsByMaintenance(20L);
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        verify(maintenanceService).getMaintenanceById(20L);
+    }
+
+    @Test
+    void testGetAllocationsByMaintenance_WhenMaintenanceServiceDeniesAccess_ThrowsAccessDeniedException() {
+        when(maintenanceService.getMaintenanceById(20L))
+                .thenThrow(new AccessDeniedException("You are not allowed to access this maintenance record"));
+
+        AccessDeniedException ex = assertThrows(
+                AccessDeniedException.class,
+                () -> paymentAllocationService.getAllocationsByMaintenance(20L)
+        );
+
+        assertEquals("You are not allowed to access this maintenance record", ex.getMessage());
+        verify(paymentAllocationRepository, never()).findByMaintenanceId(any());
+    }
 }
