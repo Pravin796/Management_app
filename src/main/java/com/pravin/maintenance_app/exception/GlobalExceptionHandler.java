@@ -45,6 +45,21 @@ public class GlobalExceptionHandler {
                 return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
+        @ExceptionHandler(IllegalArgumentException.class)
+        public ResponseEntity<ApiErrorResponse> handleIllegalArgumentException(
+                        IllegalArgumentException ex,
+                        HttpServletRequest request) {
+
+                ApiErrorResponse response = new ApiErrorResponse(
+                                LocalDateTime.now(),
+                                HttpStatus.BAD_REQUEST.value(),
+                                "Bad Request",
+                                ex.getMessage(),
+                                request.getRequestURI());
+
+                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
         @ExceptionHandler(MethodArgumentNotValidException.class)
         public ResponseEntity<ApiErrorResponse> handleValidationException(
                         MethodArgumentNotValidException ex,

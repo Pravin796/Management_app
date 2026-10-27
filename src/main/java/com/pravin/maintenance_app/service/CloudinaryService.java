@@ -24,6 +24,16 @@ public class CloudinaryService {
             throw new BusinessValidationException("File must not be null or empty");
         }
 
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
+            throw new BusinessValidationException("Only image files (JPEG, PNG, WEBP, etc.) are allowed");
+        }
+
+        long maxSizeBytes = 10 * 1024 * 1024; // 10MB
+        if (file.getSize() > maxSizeBytes) {
+            throw new BusinessValidationException("Image file size must not exceed 10MB");
+        }
+
         try {
             Map<String, Object> options = new HashMap<>();
             if (folder != null && !folder.isBlank()) {

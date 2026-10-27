@@ -13,7 +13,13 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
 
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.List;
+
 import com.pravin.maintenance_app.security.JwtAuthenticationFilter;
+import com.pravin.maintenance_app.security.MustChangePasswordFilter;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -21,9 +27,13 @@ import jakarta.servlet.http.HttpServletResponse;
 public class SecurityConfig {
 
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
+        private final MustChangePasswordFilter mustChangePasswordFilter;
 
-        public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+        public SecurityConfig(
+                JwtAuthenticationFilter jwtAuthenticationFilter,
+                MustChangePasswordFilter mustChangePasswordFilter) {
                 this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+                this.mustChangePasswordFilter = mustChangePasswordFilter;
         }
 
         @Bean
@@ -32,9 +42,22 @@ public class SecurityConfig {
         }
 
         @Bean
+        public CorsConfigurationSource corsConfigurationSource() {
+                CorsConfiguration configuration = new CorsConfiguration();
+                configuration.setAllowedOriginPatterns(List.of("*"));
+                configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+                configuration.setAllowedHeaders(List.of("*"));
+                configuration.setAllowCredentials(true);
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                source.registerCorsConfiguration("/**", configuration);
+                return source;
+        }
+
+        @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
                 http
+                                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .csrf(csrf -> csrf.disable())
 
                                 .authorizeHttpRequests(auth -> auth
@@ -111,7 +134,10 @@ public class SecurityConfig {
 
                                 .addFilterBefore(
                                                 jwtAuthenticationFilter,
-                                                UsernamePasswordAuthenticationFilter.class);
+                                                UsernamePasswordAuthenticationFilter.class)
+                                .addFilterAfter(
+                                                mustChangePasswordFilter,
+                                                JwtAuthenticationFilter.class);
 
                 return http.build();
         }

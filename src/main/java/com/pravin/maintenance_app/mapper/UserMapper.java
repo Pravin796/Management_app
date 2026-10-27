@@ -17,6 +17,7 @@ public interface UserMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "passwordResetAt", ignore = true)
     User toEntity(@Valid UserRegistrationRequest request);
 
     @Mapping(target = "roomNumber", source = "room.roomNumber")

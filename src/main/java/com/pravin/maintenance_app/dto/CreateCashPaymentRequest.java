@@ -9,7 +9,6 @@ import java.math.BigDecimal;
 @Data
 public class CreateCashPaymentRequest {
 
-    @NotNull(message = "Room id is required")
     private Long roomId;
 
     @NotNull(message = "Amount is required")

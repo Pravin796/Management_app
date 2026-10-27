@@ -44,6 +44,9 @@ public class CashPaymentRequestService {
                 User currentUser = currentUserService.getCurrentUser();
 
                 Room room = currentUser.getRoom();
+                if (room == null) {
+                        throw new BusinessValidationException("User does not have an assigned room");
+                }
 
                 List<CashPaymentRequest> pendingRequests = cashPaymentRequestRepository.findByRoomIdAndStatus(
                                 room.getId(),

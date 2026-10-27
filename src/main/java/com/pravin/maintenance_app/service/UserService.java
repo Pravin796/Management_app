@@ -8,6 +8,8 @@ import com.pravin.maintenance_app.ENUM.UserStatus;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.Collections;
 import java.util.HashMap;
@@ -140,16 +142,31 @@ public class UserService {
             throw new BusinessValidationException("Cannot reset password for ADMIN accounts");
         }
 
+        LocalDateTime now = LocalDateTime.now();
+        if (user.getPasswordResetAt() != null) {
+            long minutesSinceReset = Duration.between(user.getPasswordResetAt(), now).toMinutes();
+            if (minutesSinceReset >= 0 && minutesSinceReset < 60) {
+                long remainingMinutes = 60 - minutesSinceReset;
+                throw new BusinessValidationException(
+                        "A temporary password was recently generated for this resident. Please wait "
+                                + remainingMinutes + " minute" + (remainingMinutes > 1 ? "s" : "")
+                                + " before regenerating to ensure consistent verification."
+                );
+            }
+        }
+
         String tempPassword = generateTemporaryPassword(10);
 
         user.setPassword(passwordEncoder.encode(tempPassword));
         user.setMustChangePassword(true);
+        user.setPasswordResetAt(now);
         userRepository.save(user);
 
         return AdminResetPasswordResponse.builder()
                 .userId(user.getId())
                 .roomNumber(user.getRoom() != null ? user.getRoom().getRoomNumber() : null)
                 .temporaryPassword(tempPassword)
+                .passwordResetAt(now)
                 .message("Password reset successfully. User must change the password after login.")
                 .build();
     }
@@ -183,6 +200,7 @@ public class UserService {
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setMustChangePassword(false);
+        user.setPasswordResetAt(null);
         userRepository.save(user);
 
         return new ChangePasswordResponse("Password changed successfully.");

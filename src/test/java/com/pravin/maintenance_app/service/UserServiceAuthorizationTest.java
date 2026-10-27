@@ -22,6 +22,7 @@ import com.pravin.maintenance_app.dto.AdminResetPasswordResponse;
 import com.pravin.maintenance_app.entity.Room;
 import com.pravin.maintenance_app.exception.BusinessValidationException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -167,6 +168,66 @@ public class UserServiceAuthorizationTest {
         assertEquals("101", response.getRoomNumber());
         assertNotNull(response.getTemporaryPassword());
         assertEquals(10, response.getTemporaryPassword().length());
+        assertNotNull(response.getPasswordResetAt());
+        assertNotNull(resident.getPasswordResetAt());
+        assertTrue(resident.isMustChangePassword());
+        verify(userRepository).save(resident);
+    }
+
+    @Test
+    void testAdminResetPassword_WithinOneHour_ThrowsBusinessValidationException() {
+        User admin = new User();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        Room room = new Room();
+        room.setId(101L);
+        room.setRoomNumber("101");
+
+        User resident = new User();
+        resident.setId(2L);
+        resident.setRole(Role.USER);
+        resident.setRoom(room);
+        resident.setPasswordResetAt(LocalDateTime.now().minusMinutes(20));
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(resident));
+
+        BusinessValidationException ex = assertThrows(
+                BusinessValidationException.class,
+                () -> userService.adminResetPassword(2L)
+        );
+
+        assertTrue(ex.getMessage().contains("A temporary password was recently generated"));
+        assertTrue(ex.getMessage().contains("before regenerating"));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void testAdminResetPassword_AfterOneHour_Succeeds() {
+        User admin = new User();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        Room room = new Room();
+        room.setId(101L);
+        room.setRoomNumber("101");
+
+        User resident = new User();
+        resident.setId(2L);
+        resident.setRole(Role.USER);
+        resident.setRoom(room);
+        resident.setPasswordResetAt(LocalDateTime.now().minusMinutes(65));
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(resident));
+        when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AdminResetPasswordResponse response = userService.adminResetPassword(2L);
+
+        assertNotNull(response);
+        assertNotNull(response.getPasswordResetAt());
         assertTrue(resident.isMustChangePassword());
         verify(userRepository).save(resident);
     }

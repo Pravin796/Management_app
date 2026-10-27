@@ -34,6 +34,9 @@ public class PaymentService {
         User currentUser = currentUserService.getCurrentUser();
 
         Room room = currentUser.getRoom();
+        if (room == null) {
+            throw new BusinessValidationException("User does not have an assigned room");
+        }
 
         if (paymentRepository.existsByRoomIdAndStatus(
                 room.getId(),

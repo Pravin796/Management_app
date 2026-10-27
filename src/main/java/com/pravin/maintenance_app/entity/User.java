@@ -57,6 +57,9 @@ public class User {
     @Column(name = "must_change_password", nullable = false)
     private boolean mustChangePassword = false;
 
+    @Column(name = "password_reset_at")
+    private LocalDateTime passwordResetAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role;

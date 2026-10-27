@@ -1,5 +1,7 @@
 package com.pravin.maintenance_app.dto;
 
+import java.time.LocalDateTime;
+
 public class UserResponse {
 
     private Long id;
@@ -9,6 +11,7 @@ public class UserResponse {
     private String mobileNumber;
     private String role;
     private String status;
+    private LocalDateTime passwordResetAt;
 
     public UserResponse() {
     }
@@ -67,5 +70,13 @@ public class UserResponse {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public LocalDateTime getPasswordResetAt() {
+        return passwordResetAt;
+    }
+
+    public void setPasswordResetAt(LocalDateTime passwordResetAt) {
+        this.passwordResetAt = passwordResetAt;
     }
 }
