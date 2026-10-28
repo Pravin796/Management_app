@@ -194,10 +194,10 @@ Single source of truth for verified progress, test evidence, blockers, and activ
 1. **Local Preview Only on Selection**:
    - `OnlinePaymentScreen.js` uses `ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: false, quality: 0.8 })`.
    - Selecting an image populates `localImageUri` only; no automatic network request is made.
-   - Editing controls and unneeded state removed, keeping "Choose Another Image" and "Remove".
-2. **Explicit Two-Stage Upload**:
-   - "Upload Image to Cloud" button sends `multipart/form-data` with field name `file` and folder `payment_proofs` to `POST /api/uploads/image`.
-   - Uses existing Axios instance in `src/services/api.js` (`uploadImage()`), attaching resident JWT bearer token and detecting mime type (`image/jpeg`, `image/png`, `image/webp`).
+   - Editing controls and unneeded state removed, keeping "Choose Another" and "Remove".
+2. **Explicit Two-Stage Upload & Native Multipart Handling**:
+   - "Upload" button sends `multipart/form-data` with field name `file` and folder `payment_proofs` to `POST /api/uploads/image`.
+   - In React Native / Expo, Expo Winter's global `fetch` does not support `{ uri, name, type }` in `FormData` (it throws `Unsupported FormDataPart implementation`). Fixed in `src/services/api.js` by using native `XMLHttpRequest` for multipart file uploads and configuring `api` instance with `adapter: ['xhr', 'fetch']`, allowing React Native's native OkHttp client on Android to stream files directly from disk without JavaScript buffer conversion.
    - Server returns HTTP 201 with `{ url: "https://res.cloudinary.com/...", publicId: "..." }`.
    - Cloudinary credentials remain strictly server-side (`CLOUDINARY_*` in `.env` / `application.yaml`) and are never exposed to the frontend.
 3. **Hosted Preview & Proof Submission**:
@@ -207,7 +207,7 @@ Single source of truth for verified progress, test evidence, blockers, and activ
    - Submit button is disabled while uploading or if screenshot is chosen but not yet uploaded, preventing partial submissions.
 4. **Physical Device Networking**:
    - Android physical devices cannot use `localhost` (which refers to the phone itself).
-   - Host LAN IP `http://192.168.1.70:8080/api` is configured in `frontend-maintenance-app/.env` and `src/config/env.js`.
+   - Host LAN IP `http://192.168.1.68:8080/api` is configured in `frontend-maintenance-app/.env` and `src/config/env.js`.
 5. **Database & Schema**:
    - Reuses existing Flyway V6 column `screenshot_public_id` and `Payment.screenshotPublicId`. No additional DB migration required.
 
@@ -225,9 +225,9 @@ Single source of truth for verified progress, test evidence, blockers, and activ
   - `PaymentServiceTest`: 17/17 passing.
 - **Frontend Verification**:
   - `npm run lint`: 0 errors, 0 warnings.
-  - `npx expo export --platform android`: 1508 modules bundled successfully into Hermes bytecode (`index-fe155c5275a717b92e0350c79f48a56e.hbc`, 4.2MB).
+  - `npx expo export --platform android`: 1508 modules bundled successfully into Hermes bytecode (`index-bcc0103898f30e84cb367a08ea6171fa.hbc`, 4.2MB).
 
 ### D. Remaining Manual Checks
-- [ ] Test image selection and upload with physical Android phone connected via Expo Go on `192.168.1.70:8080` to verify camera/gallery access and actual Cloudinary upload.
+- [ ] Test image selection and upload with physical Android phone connected via Expo Go on `192.168.1.68:8080` to verify camera/gallery access and actual Cloudinary upload.
 - [ ] Confirm receipt display in Admin Verification modal renders the Cloudinary image thumbnail.
 

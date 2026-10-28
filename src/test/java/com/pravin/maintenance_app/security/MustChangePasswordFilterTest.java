@@ -109,8 +109,7 @@ public class MustChangePasswordFilterTest {
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 "9876543210",
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_USER"))
-        );
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         User user = new User();
@@ -133,8 +132,7 @@ public class MustChangePasswordFilterTest {
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 "9876543210",
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_USER"))
-        );
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         User user = new User();
@@ -157,7 +155,8 @@ public class MustChangePasswordFilterTest {
     }
 
     @Test
-    void testAuthenticatedUser_MustChangePasswordTrue_ProtectedPaymentEndpoint_BlockedWith403() throws ServletException, IOException {
+    void testAuthenticatedUser_MustChangePasswordTrue_ProtectedPaymentEndpoint_BlockedWith403()
+            throws ServletException, IOException {
         when(request.getMethod()).thenReturn("POST");
         when(request.getRequestURI()).thenReturn("/api/payments");
         when(request.getContextPath()).thenReturn("");
@@ -165,8 +164,7 @@ public class MustChangePasswordFilterTest {
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 "9876543210",
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_USER"))
-        );
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         User user = new User();
