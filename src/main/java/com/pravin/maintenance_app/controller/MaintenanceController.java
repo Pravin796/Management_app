@@ -3,7 +3,6 @@ package com.pravin.maintenance_app.controller;
 import com.pravin.maintenance_app.dto.CreateMaintenanceRequest;
 import com.pravin.maintenance_app.dto.MaintenanceResponse;
 import com.pravin.maintenance_app.entity.Maintenance;
-import com.pravin.maintenance_app.mapper.MaintenanceMapper;
 import com.pravin.maintenance_app.service.MaintenanceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,14 +19,13 @@ import com.pravin.maintenance_app.dto.ApiErrorResponse;
 import java.time.YearMonth;
 import java.util.List;
 
-@Tag(name = "Maintenance", description = "Endpoints for maintenance records")
+@Tag(name = "Maintenance", description = "Endpoints for maintenance operations")
 @RestController
 @RequestMapping("/api/maintenance")
 @RequiredArgsConstructor
 public class MaintenanceController {
 
     private final MaintenanceService maintenanceService;
-    private final MaintenanceMapper maintenanceMapper;
 
     @Operation(summary = "Create maintenance (ADMIN)", description = "Creates a new maintenance record. Requires ADMIN role.")
     @ApiResponse(responseCode = "201", description = "Created successfully")
@@ -38,7 +36,7 @@ public class MaintenanceController {
     public ResponseEntity<MaintenanceResponse> createMaintenance(
             @Valid @RequestBody CreateMaintenanceRequest request) {
         Maintenance maintenance = maintenanceService.createMaintenance(request);
-        MaintenanceResponse response = maintenanceMapper.toResponse(maintenance);
+        MaintenanceResponse response = maintenanceService.toResponse(maintenance);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -49,7 +47,7 @@ public class MaintenanceController {
     @GetMapping("/{id}")
     public ResponseEntity<MaintenanceResponse> getMaintenanceById(@PathVariable Long id) {
         Maintenance maintenance = maintenanceService.getMaintenanceById(id);
-        MaintenanceResponse response = maintenanceMapper.toResponse(maintenance);
+        MaintenanceResponse response = maintenanceService.toResponse(maintenance);
         return ResponseEntity.ok(response);
     }
 
@@ -62,7 +60,7 @@ public class MaintenanceController {
             @PathVariable Long roomId,
             @PathVariable YearMonth billingMonth) {
         Maintenance maintenance = maintenanceService.getMaintenanceByRoomAndMonth(roomId, billingMonth);
-        MaintenanceResponse response = maintenanceMapper.toResponse(maintenance);
+        MaintenanceResponse response = maintenanceService.toResponse(maintenance);
         return ResponseEntity.ok(response);
     }
 
@@ -71,12 +69,7 @@ public class MaintenanceController {
     @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     @GetMapping("/my")
     public ResponseEntity<List<MaintenanceResponse>> getMyMaintenance() {
-
-        List<MaintenanceResponse> response = maintenanceService.getMyMaintenance()
-                .stream()
-                .map(maintenanceMapper::toResponse)
-                .toList();
-
+        List<MaintenanceResponse> response = maintenanceService.getMyMaintenanceResponses();
         return ResponseEntity.ok(response);
     }
 
@@ -86,11 +79,7 @@ public class MaintenanceController {
     @ApiResponse(responseCode = "403", description = "Access denied", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     @GetMapping("/room/{roomId}")
     public ResponseEntity<List<MaintenanceResponse>> getMaintenanceByRoom(@PathVariable Long roomId) {
-        List<MaintenanceResponse> response = maintenanceService.getMaintenanceByRoom(roomId)
-                .stream()
-                .map(maintenanceMapper::toResponse)
-                .toList();
-
+        List<MaintenanceResponse> response = maintenanceService.getMaintenanceResponsesByRoom(roomId);
         return ResponseEntity.ok(response);
     }
 }

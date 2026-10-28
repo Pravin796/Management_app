@@ -20,7 +20,19 @@ public class MaintenanceResponse {
     private String roomNumber;
     private YearMonth billingMonth;
     private BigDecimal amount;
+    private BigDecimal paidAmount;
+    private BigDecimal remainingAmount;
+    private BigDecimal totalAmount;
+    private BigDecimal remainingBalance;
     private MaintenanceStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public BigDecimal getTotalAmount() {
+        return totalAmount != null ? totalAmount : amount;
+    }
+
+    public BigDecimal getRemainingBalance() {
+        return remainingBalance != null ? remainingBalance : (remainingAmount != null ? remainingAmount : amount);
+    }
 }

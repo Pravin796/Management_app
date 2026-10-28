@@ -4,12 +4,14 @@ import com.pravin.maintenance_app.ENUM.MaintenanceStatus;
 import com.pravin.maintenance_app.ENUM.Role;
 import com.pravin.maintenance_app.config.MaintenanceProperties;
 import com.pravin.maintenance_app.dto.CreateMaintenanceRequest;
+import com.pravin.maintenance_app.dto.MaintenanceResponse;
 import com.pravin.maintenance_app.entity.Maintenance;
 import com.pravin.maintenance_app.entity.Room;
 import com.pravin.maintenance_app.entity.User;
 import com.pravin.maintenance_app.exception.BusinessValidationException;
 import com.pravin.maintenance_app.mapper.MaintenanceMapper;
 import com.pravin.maintenance_app.repository.MaintenanceRepository;
+import com.pravin.maintenance_app.repository.PaymentAllocationRepository;
 import com.pravin.maintenance_app.security.CurrentUserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +37,9 @@ public class MaintenanceServiceTest {
 
     @Mock
     private MaintenanceRepository maintenanceRepository;
+
+    @Mock
+    private PaymentAllocationRepository paymentAllocationRepository;
 
     @Mock
     private RoomService roomService;
@@ -316,5 +321,56 @@ public class MaintenanceServiceTest {
 
         assertEquals("You are not allowed to access maintenance for this room", ex.getMessage());
         verify(maintenanceRepository, never()).findByRoomId(any());
+    }
+
+    @Test
+    void testGetMaintenanceResponsesByRoom_EnrichesPaidAndRemainingAmounts() {
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        Maintenance m1 = new Maintenance();
+        m1.setId(10L);
+        m1.setAmount(new BigDecimal("500.00"));
+        m1.setStatus(MaintenanceStatus.PENDING);
+
+        Maintenance m2 = new Maintenance();
+        m2.setId(20L);
+        m2.setAmount(new BigDecimal("500.00"));
+        m2.setStatus(MaintenanceStatus.PAID);
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(maintenanceRepository.findByRoomId(1L)).thenReturn(List.of(m1, m2));
+
+        List<Object[]> rows = new java.util.ArrayList<>(); rows.add(new Object[]{10L, new BigDecimal("200.00")});
+        when(paymentAllocationRepository.getVerifiedAmountByRoomIdGroupedByMaintenanceId(1L)).thenReturn(rows);
+
+        MaintenanceResponse resp1 = new MaintenanceResponse();
+        resp1.setId(10L);
+        resp1.setAmount(new BigDecimal("500.00"));
+        resp1.setStatus(MaintenanceStatus.PENDING);
+
+        MaintenanceResponse resp2 = new MaintenanceResponse();
+        resp2.setId(20L);
+        resp2.setAmount(new BigDecimal("500.00"));
+        resp2.setStatus(MaintenanceStatus.PAID);
+
+        when(maintenanceMapper.toResponse(m1)).thenReturn(resp1);
+        when(maintenanceMapper.toResponse(m2)).thenReturn(resp2);
+
+        List<MaintenanceResponse> responses = maintenanceService.getMaintenanceResponsesByRoom(1L);
+
+        assertNotNull(responses);
+        assertEquals(2, responses.size());
+
+        MaintenanceResponse r1 = responses.get(0);
+        assertEquals(new BigDecimal("200.00"), r1.getPaidAmount());
+        assertEquals(new BigDecimal("300.00"), r1.getRemainingAmount());
+        assertEquals(new BigDecimal("300.00"), r1.getRemainingBalance());
+        assertEquals(new BigDecimal("500.00"), r1.getTotalAmount());
+
+        MaintenanceResponse r2 = responses.get(1);
+        assertEquals(new BigDecimal("500.00"), r2.getPaidAmount());
+        assertEquals(BigDecimal.ZERO, r2.getRemainingAmount());
+        assertEquals(BigDecimal.ZERO, r2.getRemainingBalance());
     }
 }
