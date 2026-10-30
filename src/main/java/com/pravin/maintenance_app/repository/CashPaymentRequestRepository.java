@@ -16,6 +16,11 @@ public interface CashPaymentRequestRepository
             CashPaymentRequestStatus status
     );
 
+    boolean existsByRoomIdAndStatus(
+            Long roomId,
+            CashPaymentRequestStatus status
+    );
+
     List<CashPaymentRequest> findByStatus(
             CashPaymentRequestStatus status
     );

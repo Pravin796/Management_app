@@ -123,6 +123,19 @@ public class PaymentController {
         return ResponseEntity.ok(responses);
     }
 
+    @Operation(summary = "Get all verified payments", description = "Retrieves all verified payments across all rooms. Requires ADMIN role.")
+    @ApiResponse(responseCode = "200", description = "Returned successfully")
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @GetMapping("/admin/verified")
+    public ResponseEntity<List<PaymentResponse>> getAllVerifiedPayments() {
+        List<Payment> payments = paymentService.getAllVerifiedPayments();
+        List<PaymentResponse> responses = payments.stream()
+                .map(paymentMapper::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
+    }
+
     @Operation(summary = "Reject payment (ADMIN)", description = "Rejects a payment. Requires ADMIN role.")
     @ApiResponse(responseCode = "200", description = "Rejected successfully")
     @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))

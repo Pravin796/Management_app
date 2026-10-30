@@ -74,6 +74,7 @@ public class SecurityConfig {
                                                                 "/api/cash-payments/*/verify",
                                                                 "/api/cash-payments/*/reject",
                                                                 "/api/payments/admin/pending",
+                                                                "/api/payments/admin/verified",
                                                                 "/api/payments/*/verify",
                                                                 "/api/payments/*/reject")
                                                 .hasRole("ADMIN")

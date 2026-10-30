@@ -57,6 +57,11 @@ public class CashPaymentRequestService {
                                         "A cash payment request is already pending for this room");
                 }
 
+                if (paymentRepository.existsByRoomIdAndStatus(room.getId(), PaymentStatus.PENDING)) {
+                        throw new BusinessValidationException(
+                                        "An online payment is already pending for this room");
+                }
+
                 CashPaymentRequest cashPaymentRequest = cashPaymentRequestMapper.toEntity(request);
 
                 cashPaymentRequest.setRoom(room);

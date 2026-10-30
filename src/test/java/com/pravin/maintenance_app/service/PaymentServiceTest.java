@@ -9,6 +9,7 @@ import com.pravin.maintenance_app.entity.Room;
 import com.pravin.maintenance_app.entity.User;
 import com.pravin.maintenance_app.mapper.PaymentMapper;
 import com.pravin.maintenance_app.repository.PaymentRepository;
+import com.pravin.maintenance_app.repository.CashPaymentRequestRepository;
 import com.pravin.maintenance_app.security.CurrentUserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +41,9 @@ public class PaymentServiceTest {
 
     @Mock
     private RoomService roomService;
+
+    @Mock
+    private CashPaymentRequestRepository cashPaymentRequestRepository;
 
     @InjectMocks
     private PaymentService paymentService;
@@ -372,4 +376,39 @@ public class PaymentServiceTest {
         assertEquals("Only pending payments can be rejected", ex.getMessage());
         verify(paymentRepository, never()).save(any());
     }
+    @Test
+    void testGetAllVerifiedPayments_AdminAllowed() {
+        User admin = new User();
+        admin.setRole(Role.ADMIN);
+
+        Payment p = new Payment();
+        p.setId(10L);
+        p.setStatus(PaymentStatus.VERIFIED);
+
+        when(currentUserService.getCurrentUser()).thenReturn(admin);
+        when(paymentRepository.findByStatus(PaymentStatus.VERIFIED)).thenReturn(List.of(p));
+
+        List<Payment> results = paymentService.getAllVerifiedPayments();
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        verify(paymentRepository).findByStatus(PaymentStatus.VERIFIED);
+    }
+
+    @Test
+    void testGetAllVerifiedPayments_ResidentForbidden_ThrowsAccessDeniedException() {
+        User resident = new User();
+        resident.setRole(Role.USER);
+
+        when(currentUserService.getCurrentUser()).thenReturn(resident);
+
+        AccessDeniedException ex = assertThrows(
+                AccessDeniedException.class,
+                () -> paymentService.getAllVerifiedPayments()
+        );
+
+        assertEquals("Only ADMIN can access all verified payments", ex.getMessage());
+        verify(paymentRepository, never()).findByStatus(any());
+    }
+
 }

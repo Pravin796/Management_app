@@ -3,6 +3,8 @@ package com.pravin.maintenance_app.service;
 import com.pravin.maintenance_app.exception.ResourceNotFoundException;
 import com.pravin.maintenance_app.exception.BusinessValidationException;
 import com.pravin.maintenance_app.ENUM.PaymentStatus;
+import com.pravin.maintenance_app.ENUM.CashPaymentRequestStatus;
+import com.pravin.maintenance_app.repository.CashPaymentRequestRepository;
 import com.pravin.maintenance_app.dto.CreatePaymentRequest;
 import com.pravin.maintenance_app.entity.Payment;
 import com.pravin.maintenance_app.entity.Room;
@@ -25,6 +27,7 @@ import java.util.List;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
+    private final CashPaymentRequestRepository cashPaymentRequestRepository;
     private final RoomService roomService;
     private final PaymentMapper paymentMapper;
     private final CurrentUserService currentUserService;
@@ -44,6 +47,14 @@ public class PaymentService {
 
             throw new BusinessValidationException(
                     "Room already has a pending payment");
+        }
+
+        if (cashPaymentRequestRepository.existsByRoomIdAndStatus(
+                room.getId(),
+                CashPaymentRequestStatus.PENDING)) {
+
+            throw new BusinessValidationException(
+                    "Room already has a pending cash payment request");
         }
 
         Payment payment = paymentMapper.toEntity(request);
@@ -173,6 +184,15 @@ public class PaymentService {
         }
 
         return paymentRepository.findByStatus(PaymentStatus.PENDING);
+    }
+
+    public List<Payment> getAllVerifiedPayments() {
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only ADMIN can access all verified payments");
+        }
+
+        return paymentRepository.findByStatus(PaymentStatus.VERIFIED);
     }
 
     @Transactional
