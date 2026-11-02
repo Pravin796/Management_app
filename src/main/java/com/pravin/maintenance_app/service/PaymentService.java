@@ -13,17 +13,21 @@ import com.pravin.maintenance_app.repository.PaymentRepository;
 import com.pravin.maintenance_app.security.CurrentUserService;
 import com.pravin.maintenance_app.entity.User;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import com.pravin.maintenance_app.dto.UpdatePaymentProofRequest;
 import com.pravin.maintenance_app.ENUM.Role;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
@@ -31,6 +35,7 @@ public class PaymentService {
     private final RoomService roomService;
     private final PaymentMapper paymentMapper;
     private final CurrentUserService currentUserService;
+    private final CloudinaryService cloudinaryService;
 
     public Payment createPayment(CreatePaymentRequest request) {
 
@@ -69,26 +74,26 @@ public class PaymentService {
 
     public Payment getPaymentById(Long paymentId) {
 
-    Payment payment = paymentRepository.findById(paymentId)
-            .orElseThrow(() ->
-                    new ResourceNotFoundException(
-                            "Payment not found with id: " + paymentId
-                    )
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Payment not found with id: " + paymentId
+                        )
+                );
+
+        User currentUser = currentUserService.getCurrentUser();
+
+        if (currentUser.getRole() != Role.ADMIN
+                && !currentUser.getRoom().getId()
+                        .equals(payment.getRoom().getId())) {
+
+            throw new AccessDeniedException(
+                    "You are not allowed to access this payment"
             );
+        }
 
-    User currentUser = currentUserService.getCurrentUser();
-
-    if (currentUser.getRole() != Role.ADMIN
-        && !currentUser.getRoom().getId()
-                .equals(payment.getRoom().getId())) {
-
-    throw new AccessDeniedException(
-            "You are not allowed to access this payment"
-    );
-}
-
-    return payment;
-}
+        return payment;
+    }
 
     public List<Payment> getPaymentsByRoom(Long roomId) {
         roomService.getRoomById(roomId);
@@ -146,6 +151,52 @@ public class PaymentService {
         payment.setUpdatedAt(LocalDateTime.now());
 
         return paymentRepository.save(payment);
+    }
+
+    @Transactional
+    public Payment submitPaymentProof(
+            Long paymentId,
+            String transactionReference,
+            MultipartFile file) {
+
+        if (transactionReference == null || transactionReference.trim().isEmpty()) {
+            throw new BusinessValidationException("Transaction reference / UTR is required");
+        }
+
+        if (file == null || file.isEmpty()) {
+            throw new BusinessValidationException("Payment screenshot file is required");
+        }
+
+        // Authenticate resident and verify payment ownership
+        Payment payment = getPaymentById(paymentId);
+
+        // Validate payment status and eligibility before uploading
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new BusinessValidationException("Payment proof can only be submitted for PENDING payments");
+        }
+
+        // Upload to Cloudinary (validates image type and size <= 10MB)
+        Map<String, String> uploadResult = cloudinaryService.uploadImage(file, "payment_proofs");
+        String url = uploadResult.get("url");
+        String publicId = uploadResult.get("publicId");
+
+        try {
+            payment.setTransactionReference(transactionReference.trim());
+            payment.setScreenshotUrl(url);
+            payment.setScreenshotPublicId(publicId);
+            payment.setUpdatedAt(LocalDateTime.now());
+            return paymentRepository.save(payment);
+        } catch (Exception e) {
+            log.error("Failed to save payment proof in database. Attempting Cloudinary rollback for publicId: {}", publicId, e);
+            if (publicId != null && !publicId.isBlank()) {
+                try {
+                    cloudinaryService.deleteImage(publicId);
+                } catch (Exception deleteEx) {
+                    log.warn("Failed to clean up Cloudinary asset {} after DB error: {}", publicId, deleteEx.getMessage());
+                }
+            }
+            throw e;
+        }
     }
 
     @Transactional

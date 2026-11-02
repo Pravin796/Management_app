@@ -8,8 +8,10 @@ import com.pravin.maintenance_app.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -106,6 +108,22 @@ public class PaymentController {
             @PathVariable Long id,
             @Valid @RequestBody com.pravin.maintenance_app.dto.UpdatePaymentProofRequest request) {
         Payment payment = paymentService.updatePaymentProof(id, request);
+        PaymentResponse response = paymentMapper.toResponse(payment);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Submit payment proof", description = "Submits transaction reference and screenshot image as multipart/form-data in a single request")
+    @ApiResponse(responseCode = "200", description = "Payment proof submitted successfully")
+    @ApiResponse(responseCode = "400", description = "Invalid request or file type/size", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "User is not allowed to access this payment", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Payment not found", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @PostMapping(value = "/{id}/submit-proof", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PaymentResponse> submitPaymentProof(
+            @PathVariable Long id,
+            @RequestParam("transactionReference") String transactionReference,
+            @RequestParam("file") MultipartFile file) {
+        Payment payment = paymentService.submitPaymentProof(id, transactionReference, file);
         PaymentResponse response = paymentMapper.toResponse(payment);
         return ResponseEntity.ok(response);
     }

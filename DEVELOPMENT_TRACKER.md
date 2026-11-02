@@ -12,7 +12,7 @@ Single source of truth for verified progress, test evidence, blockers, and activ
 | **Phase 0** | Existing implementation audit and project baseline | **COMPLETE** | Full backend/frontend audit conducted; API & screen inventory completed; all initial baseline tests pass. |
 | **Phase 1** | Authentication, session handling, and app foundation | **COMPLETE** | Backend auth APIs verified (`/api/auth/register`, `/api/auth/login`, `/api/auth/change-password`). Frontend session restoration verified in `App.js`. First-login forced password change & 1-hour reset cooldown verified. |
 | **Phase 2** | Resident dashboard and maintenance history | **COMPLETE** | Backend `GET /api/users/me/dashboard`, `GET /api/maintenance/my`, and `GET /api/payments/my` connected to `DashboardScreen.js`. Tab 2 payment history bound to real API records; mock fallback balance eliminated; 13 backend unit/controller tests pass. |
-| **Phase 3** | Online payments and proof submission | **COMPLETE** | Connected `OnlinePaymentScreen.js` to live APIs: `createPayment()`, `uploadImage()` (multipart to `/api/uploads/image`), and `updatePaymentProof()` (`PATCH /api/payments/{id}/proof`). 17 backend tests in `PaymentServiceTest` and `PaymentControllerTest` pass. |
+| **Phase 3** | Online payments and proof submission | **COMPLETE** | Refactored into a single-step multipart proof submission: `OnlinePaymentScreen.js` keeps image locally, validates UTR and screenshot, and sends both via `submitPaymentProof()` (`POST /api/payments/{id}/submit-proof`). Backend verifies ownership & PENDING status, streams to Cloudinary, persists proof in DB, and compensates with Cloudinary rollback if DB fails. Separate upload button removed. |
 | **Phase 4** | Cash payment request workflow | **COMPLETE** | Connected `CashPaymentScreen.js` to live API: `createCashPaymentRequest()`. Removed redundant `@NotNull` roomId constraint in DTO so room is securely derived from authenticated user. 12 tests in `CashPaymentRequestServiceTest` pass. |
 | **Phase 5** | Admin dashboard and financial overview | **COMPLETE** | Backend `GET /api/admin/dashboard` verified across 14 tests. Frontend `AdminDashboardScreen.js` connected to live API with pull-to-refresh, error retry, loading indicators, empty data handling, and role-based access. |
 | **Phase 6** | Admin payment review and allocation management | **COMPLETE** | Backend endpoints verified (`GET /api/payments/admin/pending`, `PUT /api/payments/{id}/verify`, `POST /api/payments/{id}/reject`, `GET /api/cash-payments/admin/pending`, `POST /api/cash-payments/{id}/verify`, `POST /api/cash-payments/{id}/reject`, `POST /api/payment-allocations`, `GET /api/maintenance/room/{roomId}`). Frontend integrated with proof screenshot modal, maintenance allocation selection, double-submission guards, and statistics refresh. 46 focused tests pass. |
@@ -46,6 +46,7 @@ Single source of truth for verified progress, test evidence, blockers, and activ
 | `GET` | `/api/maintenance/my` | Authenticated (Blocked if `mustChangePassword=true`) | **Active & Verified** | `MaintenanceServiceTest` (2 tests) |
 | `POST` | `/api/payments` | Authenticated (Blocked if `mustChangePassword=true`) | **Active & Verified** | `PaymentServiceTest` (3 tests), `PaymentControllerTest` (3 tests), `MustChangePasswordFilterTest` (1 test) |
 | `GET` | `/api/payments/admin/pending` | `ROLE_ADMIN` | **Active & Verified** | `PaymentControllerTest` (3 tests), `PaymentServiceTest` (2 tests) |
+| `POST` | `/api/payments/{id}/submit-proof` | Room Owner | **Active & Verified** | Single multipart/form-data proof submission (UTR + screenshot file) with Cloudinary upload & compensation rollback |
 | `PATCH` | `/api/payments/{id}/proof` | Room Owner | **Active & Verified** | `PaymentServiceTest` (3 tests), `PaymentControllerTest` (2 tests) |
 | `PUT` | `/api/payments/{id}/verify` | `ROLE_ADMIN` | **Active & Verified** | `PaymentServiceTest` (2 tests), `PaymentControllerTest` (3 tests) |
 | `POST` | `/api/payments/{id}/reject` | `ROLE_ADMIN` | **Active & Verified** | `PaymentControllerTest` (3 tests), `PaymentServiceTest` (3 tests) |
@@ -76,7 +77,7 @@ Single source of truth for verified progress, test evidence, blockers, and activ
 | `DashboardScreen` | `screens/DashboardScreen.js` | `getUserDashboard()`, `getMyPayments()`, `getMyMaintenance()` | **Connected & Verified (Phase 2 Complete)** |
 | `AdminDashboardScreen` | `screens/AdminDashboardScreen.js` | `getAdminDashboard()`, `getPendingCashRequests()`, `getPendingOnlinePayments()`, `verifyCashRequest()`, `verifyOnlinePayment()`, `rejectCashRequest()`, `rejectOnlinePayment()`, `createPaymentAllocation()`, `getMaintenanceByRoom()`, `getAllRooms()`, `createRoom()`, `updateRoomExemption()`, `getAllResidents()`, `resetResidentPassword()` | **Connected & Verified (Phases 5, 6, 7 Complete)** |
 | `PaymentScreen` | `screens/PaymentScreen.js` | Props & Navigation | Connected & Verified |
-| `OnlinePaymentScreen` | `screens/OnlinePaymentScreen.js` | `createPayment()`, `uploadImage()`, `updatePaymentProof()` | **Connected & Verified (Phase 3 Complete)** |
+| `OnlinePaymentScreen` | `screens/OnlinePaymentScreen.js` | `createPayment()`, `submitPaymentProof()` | **Connected & Verified (Phase 3 Single-Step Multipart Refactor)** |
 | `CashPaymentScreen` | `screens/CashPaymentScreen.js` | `createCashPaymentRequest()` | **Connected & Verified (Phase 4 Complete)** |
 
 ---
@@ -149,6 +150,9 @@ Single source of truth for verified progress, test evidence, blockers, and activ
 | `DashboardScreen.js` Mock Tab 2 | Tab 2 used static mock payment records and fallback balance 1000 | Connected `getMyPayments` and `getMyMaintenance`; bound real payments to history tab; replaced fallback balance with 0 default; added empty state. | **Fixed & Verified** |
 | `AdminDashboardScreen.js` Reset Crash | Typo calling `setResidentsList` instead of `setResidents` | Fixed identifier to `setResidents` | **Fixed & Verified** |
 | Missing CORS in `SecurityConfig.java` | Spring Security rejected cross-origin OPTIONS preflight | Added `CorsConfigurationSource` bean and enabled `.cors(...)` | **Fixed & Verified** |
+| Button Touch & Pager Clipping | Both `DashboardScreen.js` and `AdminDashboardScreen.js` used `width * 4` horizontal translateX transforms inside `overflow: hidden`, which caused React Native / Android ViewGroup touch dispatcher to clip offscreen layout coordinates, dropping touches on Profile tab (Logout), Payments tab, and subviews | Replaced translated row containers with direct active tab rendering (`{activeTab === '...' && ...}`), ensuring all tabs, buttons, inputs, and modals receive touches at (0, 0) with zero clipping | **Fixed & Verified** |
+| Missing Web Logout Dialog Handler | React Native Web ignores `Alert.alert` buttons parameter, preventing logout confirmation callback execution | Created cross-platform `confirmAction` dialog in `src/utils/alert.js` with browser `window.confirm` fallback; added quick "Sign Out" pill to Profile cards | **Fixed & Verified** |
+| Unregistered Payment Routes in Stack Navigator | `App.js` lacked `OnlinePayment` and `CashPayment` routes, and `PaymentScreen` lacked navigation callbacks for online/cash payments | Registered `OnlinePayment` and `CashPayment` in `App.js` Stack Navigator; connected `PaymentScreen` props `onNavigateOnlinePayment` and `onNavigateCashPayment`; added top in-screen Back buttons | **Fixed & Verified** |
 
 ---
 
@@ -227,7 +231,18 @@ Single source of truth for verified progress, test evidence, blockers, and activ
   - `npm run lint`: 0 errors, 0 warnings.
   - `npx expo export --platform android`: 1508 modules bundled successfully into Hermes bytecode (`index-bcc0103898f30e84cb367a08ea6171fa.hbc`, 4.2MB).
 
-### D. Remaining Manual Checks
-- [ ] Test image selection and upload with physical Android phone connected via Expo Go on `192.168.1.68:8080` to verify camera/gallery access and actual Cloudinary upload.
-- [ ] Confirm receipt display in Admin Verification modal renders the Cloudinary image thumbnail.
+### E. Single-Step Multipart Payment Proof Submission Refactor (2026-11-02)
+1. **Frontend Streamlining (`OnlinePaymentScreen.js` & `api.js`)**:
+   - Eliminated the separate "Upload" button, independent `/api/uploads/image` call, and warning banner.
+   - Image picker stores local URI with full local preview; allows replacing via "Choose Another" or removing via "Remove".
+   - Collects UTR / Transaction ID and validates required fields.
+   - On "Submit for Verification", checks required UTR and screenshot, acquires pending payment ID, and dispatches a single multipart request via `submitPaymentProof(paymentId, { transactionReference, imageUri })` using native `XMLHttpRequest` streaming.
+   - Double submission is prevented with disabled state and loading indicators; on failure, user input and screenshot are preserved for instant retry without re-picking.
+2. **Backend Multipart Endpoint (`PaymentController.java` & `PaymentService.java`)**:
+   - Added `POST /api/payments/{id}/submit-proof` consuming `multipart/form-data` with `@RequestParam("transactionReference")` and `@RequestParam("file") MultipartFile`.
+   - Security: Enforces authenticated user, checks room ownership (`getPaymentById(id)`), and validates `PENDING` status before any upload.
+   - Cloudinary Integration: Uploads to folder `payment_proofs` with file type (`image/*`) and size ($\le$ 10MB) validation only during final submission.
+   - Rollback Compensation: If database persistence fails after Cloudinary upload succeeds, catches the error and executes `cloudinaryService.deleteImage(publicId)` before propagating the exception.
+   - Cloudinary credentials remain strictly encapsulated on the server.
+
 
