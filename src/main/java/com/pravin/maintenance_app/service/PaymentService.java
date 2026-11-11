@@ -49,7 +49,8 @@ public class PaymentService {
             throw new BusinessValidationException("User does not have an assigned room");
         }
 
-        // Pessimistic lock on Room to prevent concurrent payment/cash creation race conditions
+        // Pessimistic lock on Room to prevent concurrent payment/cash creation race
+        // conditions
         Room room = roomRepository.findByIdForUpdate(userRoom.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + userRoom.getId()));
 
@@ -66,7 +67,8 @@ public class PaymentService {
                     "You have an online payment awaiting admin verification. You cannot initiate another payment until it is reviewed.");
         }
 
-        // If there is already an incomplete payment intent (proof not yet submitted), reuse/update it
+        // If there is already an incomplete payment intent (proof not yet submitted),
+        // reuse/update it
         List<Payment> incompletePayments = paymentRepository.findIncompletePaymentsByRoomId(room.getId());
         if (!incompletePayments.isEmpty()) {
             Payment existingPayment = incompletePayments.get(0);
@@ -91,11 +93,8 @@ public class PaymentService {
     public Payment getPaymentById(Long paymentId) {
 
         Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Payment not found with id: " + paymentId
-                        )
-                );
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Payment not found with id: " + paymentId));
 
         User currentUser = currentUserService.getCurrentUser();
 
@@ -104,8 +103,7 @@ public class PaymentService {
                         .equals(payment.getRoom().getId())) {
 
             throw new AccessDeniedException(
-                    "You are not allowed to access this payment"
-            );
+                    "You are not allowed to access this payment");
         }
 
         return payment;
@@ -143,16 +141,19 @@ public class PaymentService {
 
         // Pessimistic lock on Room to prevent concurrency race conditions
         Room room = roomRepository.findByIdForUpdate(payment.getRoom().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + payment.getRoom().getId()));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Room not found with id: " + payment.getRoom().getId()));
 
         if (cashPaymentRequestRepository.existsByRoomIdAndStatus(room.getId(), CashPaymentRequestStatus.PENDING)) {
-            throw new BusinessValidationException("You have a cash payment request awaiting admin verification. You cannot submit online payment proof.");
+            throw new BusinessValidationException(
+                    "You have a cash payment request awaiting admin verification. You cannot submit online payment proof.");
         }
 
         List<Payment> submitted = paymentRepository.findSubmittedPaymentsByRoomId(room.getId());
         boolean otherSubmitted = submitted.stream().anyMatch(p -> !p.getId().equals(payment.getId()));
         if (otherSubmitted) {
-            throw new BusinessValidationException("Another payment for this room is already awaiting admin verification.");
+            throw new BusinessValidationException(
+                    "Another payment for this room is already awaiting admin verification.");
         }
 
         if (payment.getStatus() != PaymentStatus.PENDING) {
@@ -200,18 +201,22 @@ public class PaymentService {
         // Authenticate resident and verify payment ownership
         Payment payment = getPaymentById(paymentId);
 
-        // Pessimistic lock on Room to serialize submissions and prevent concurrency race conditions
+        // Pessimistic lock on Room to serialize submissions and prevent concurrency
+        // race conditions
         Room room = roomRepository.findByIdForUpdate(payment.getRoom().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + payment.getRoom().getId()));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Room not found with id: " + payment.getRoom().getId()));
 
         if (cashPaymentRequestRepository.existsByRoomIdAndStatus(room.getId(), CashPaymentRequestStatus.PENDING)) {
-            throw new BusinessValidationException("You have a cash payment request awaiting admin verification. You cannot submit online payment proof.");
+            throw new BusinessValidationException(
+                    "You have a cash payment request awaiting admin verification. You cannot submit online payment proof.");
         }
 
         List<Payment> submitted = paymentRepository.findSubmittedPaymentsByRoomId(room.getId());
         boolean otherSubmitted = submitted.stream().anyMatch(p -> !p.getId().equals(payment.getId()));
         if (otherSubmitted) {
-            throw new BusinessValidationException("Another payment for this room is already awaiting admin verification.");
+            throw new BusinessValidationException(
+                    "Another payment for this room is already awaiting admin verification.");
         }
 
         // Validate payment status and eligibility before uploading
@@ -231,12 +236,14 @@ public class PaymentService {
             payment.setUpdatedAt(LocalDateTime.now());
             return paymentRepository.save(payment);
         } catch (Exception e) {
-            log.error("Failed to save payment proof in database. Attempting Cloudinary rollback for publicId: {}", publicId, e);
+            log.error("Failed to save payment proof in database. Attempting Cloudinary rollback for publicId: {}",
+                    publicId, e);
             if (publicId != null && !publicId.isBlank()) {
                 try {
                     cloudinaryService.deleteImage(publicId);
                 } catch (Exception deleteEx) {
-                    log.warn("Failed to clean up Cloudinary asset {} after DB error: {}", publicId, deleteEx.getMessage());
+                    log.warn("Failed to clean up Cloudinary asset {} after DB error: {}", publicId,
+                            deleteEx.getMessage());
                 }
             }
             throw e;

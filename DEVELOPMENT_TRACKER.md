@@ -301,10 +301,11 @@ Single source of truth for verified progress, test evidence, blockers, and activ
    - `src/services/api.js`:
      - Added `getMyCashRequests = async () => (await api.get('/cash-payments/my')).data;`.
 
-3. **Admin Payment Reviews Filter Fix (`AdminDashboardScreen.js`)**:
+3. **Admin Payment Reviews Filter Fix & Proof Image Loader (`AdminDashboardScreen.js`)**:
    - Removed `nestedScrollEnabled={true}` from the horizontal filter pills `ScrollView`, resolving Android touch-event cancellation where taps were intercepted by the vertical container.
    - Added `keyboardShouldPersistTaps="always"` and normalized filter comparisons (`pType` and `pStatus` case normalization).
    - In the Verify modal, added pre-validation for allocations to ensure payments cannot be allocated to maintenance records that are already cleared (`remaining <= 0`).
+   - Added `ProofImageViewer` with a centered `ActivityIndicator` loading overlay ("Loading proof image...") while the receipt proof screenshot downloads from cloud storage, preventing a blank container. Included error recovery with "Retry" and "Open Link" buttons.
 
 ### C. Route & Contract Additions
 | Action | HTTP Method | Endpoint | Access | Response |
