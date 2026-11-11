@@ -245,4 +245,72 @@ Single source of truth for verified progress, test evidence, blockers, and activ
    - Rollback Compensation: If database persistence fails after Cloudinary upload succeeds, catches the error and executes `cloudinaryService.deleteImage(publicId)` before propagating the exception.
    - Cloudinary credentials remain strictly encapsulated on the server.
 
+---
+
+## 10. Phase 9: Cross-Method Payment Locking and Concurrency Control (2026-11-09)
+
+### A. Problem Statement & Objectives
+1. **Unconstrained Multiple Submissions**: Previously, residents could submit both a cash payment request and an online payment simultaneously, or multiple payments in rapid succession. When Room 101 had both a cash payment and an online UPI payment pending while maintaining ₹0 outstanding dues, verifying the second payment resulted in backend error `"Allocation amount exceeds remaining maintenance amount"`.
+2. **Admin Filter Responsiveness**: On Android devices, horizontal filter pills (`All / Pending`, `Online`, `Cash`, `Verified`) in `AdminDashboardScreen` suffered from touch interception due to `nestedScrollEnabled={true}` inside parent scroll views and case sensitivity differences, causing the filter to not display items when tapped.
+3. **Core Mandate**:
+   - Enforce a strict single-pending-submission constraint across both `ONLINE` and `CASH` methods per room identity.
+   - Concurrency serialization via pessimistic database row-level locking on `Room`.
+   - Complete frontend locking of `PaymentScreen`, `OnlinePaymentScreen`, and `CashPaymentScreen` while awaiting admin review.
+   - Automatic unlock and dues recalculation upon Admin verification or rejection.
+
+### B. Implementation Details
+
+1. **Backend Concurrency & Locking Architecture**:
+   - `RoomRepository`: Added pessimistic write lock query:
+     ```java
+     @Lock(LockModeType.PESSIMISTIC_WRITE)
+     @Query("SELECT r FROM Room r WHERE r.id = :id")
+     Optional<Room> findByIdForUpdate(@Param("id") Long id);
+     ```
+     This executes `SELECT ... FROM rooms WHERE id = ? FOR UPDATE` inside Spring's transaction boundary, serializing concurrent online payment and cash request creation per room at the database level.
+   - `PaymentRepository`:
+     - Added `existsSubmittedPaymentByRoomId(Long roomId)` to identify payments that are genuinely submitted for admin review (`status == PENDING AND (transactionReference IS NOT NULL OR screenshotUrl IS NOT NULL)`), distinguishing incomplete payment intents from submitted proof.
+     - Added `findSubmittedPaymentsByRoomId(Long roomId)` and `findIncompletePaymentsByRoomId(Long roomId)`.
+   - `PaymentService`:
+     - `createPayment`: Acquires pessimistic lock on Room; checks if cash request is pending (`existsByRoomIdAndStatus(..., PENDING)`) or submitted online payment exists (`existsSubmittedPaymentByRoomId(...)`). If an incomplete payment intent exists, reuses/updates its amount and method rather than failing or creating duplicates.
+     - `submitPaymentProof` & `updatePaymentProof`: Locks Room row; validates no pending cash request and no other submitted online payment; preserves Cloudinary upload and rollback compensation on DB error.
+   - `CashPaymentRequestService`:
+     - `createRequest`: Acquires pessimistic lock on Room; checks `cashPaymentRequestRepository.existsByRoomIdAndStatus(room.getId(), PENDING)` and `paymentRepository.existsSubmittedPaymentByRoomId(room.getId())`, throwing `BusinessValidationException` if either is awaiting verification.
+     - Added `getMyCashRequests()` returning all cash requests for the authenticated resident's room.
+   - `CashPaymentRequestController`:
+     - Added `@GetMapping("/my")` endpoint for authenticated residents to retrieve their cash payment requests.
+   - `UserDashboardResponse` & `UserService`:
+     - Added `PendingPaymentDto pendingPayment` to `UserDashboardResponse` containing `id`, `amount`, `method` (`ONLINE` / `CASH`), `status` (`PENDING`), `createdAt`, and `transactionReference`.
+     - In `getUserDashboard()`, populates `pendingPayment` whenever a submitted online payment or pending cash payment request exists for that room.
+
+2. **Frontend Payment Screen Locking**:
+   - `PaymentScreen.js`:
+     - Evaluates `isPaymentLocked` directly from `dashboardData?.pendingPayment != null`.
+     - Evaluates `isDuesCleared` when `!isPaymentLocked && outstandingBalance <= 0`.
+     - When locked, renders a prominent verification banner:
+       *"Your payment has been submitted successfully and is awaiting admin verification. You cannot make another payment until the administrator reviews your current payment."*
+       Displays pending payment method, amount, submission date, status badge (`AWAITING VERIFICATION`), and reference/UTR.
+     - Hero card button displays `"Under Review"` and alerts the resident if clicked.
+     - Both Quick Action tiles (`Online Payment` and `Cash Payment`) are visually dimmed (`opacity: 0.55`) and disabled.
+     - When dues are cleared (`isDuesCleared`), displays `"All Dues Cleared"` banner, hero button shows `"All Paid"`, and quick actions are disabled.
+   - `DashboardScreen.js`:
+     - In `handleOpenOnlinePayment` and `handleOpenCashPayment`, verifies locking state and outstanding dues before opening subviews.
+     - On switching to the payments tab, automatically invokes `fetchDashboardData(true)` to refresh payment locking state from the server.
+   - `OnlinePaymentScreen.js` & `CashPaymentScreen.js`:
+     - Added `isPaymentLocked` prop; disables amount editing, disables submission buttons, and displays verification lock warning if accessed while a submission is awaiting review.
+   - `src/services/api.js`:
+     - Added `getMyCashRequests = async () => (await api.get('/cash-payments/my')).data;`.
+
+3. **Admin Payment Reviews Filter Fix (`AdminDashboardScreen.js`)**:
+   - Removed `nestedScrollEnabled={true}` from the horizontal filter pills `ScrollView`, resolving Android touch-event cancellation where taps were intercepted by the vertical container.
+   - Added `keyboardShouldPersistTaps="always"` and normalized filter comparisons (`pType` and `pStatus` case normalization).
+   - In the Verify modal, added pre-validation for allocations to ensure payments cannot be allocated to maintenance records that are already cleared (`remaining <= 0`).
+
+### C. Route & Contract Additions
+| Action | HTTP Method | Endpoint | Access | Response |
+|---|---|---|---|---|
+| Get My Cash Requests | `GET` | `/api/cash-payments/my` | Authenticated Resident / Admin | `200 OK` `List<CashPaymentRequestResponse>` |
+| Get User Dashboard | `GET` | `/api/users/dashboard` | Authenticated Resident / Admin | `200 OK` Includes `pendingPayment` DTO when awaiting review |
+
+
 

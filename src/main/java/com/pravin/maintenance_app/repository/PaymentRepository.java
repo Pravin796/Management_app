@@ -28,4 +28,13 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByStatus(PaymentStatus status);
 
     Optional<Payment> findFirstByRoomIdOrderByCreatedAtDescIdDesc(Long roomId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(p) > 0 FROM Payment p WHERE p.room.id = :roomId AND p.status = com.pravin.maintenance_app.ENUM.PaymentStatus.PENDING AND (p.transactionReference IS NOT NULL OR p.screenshotUrl IS NOT NULL)")
+    boolean existsSubmittedPaymentByRoomId(@org.springframework.data.repository.query.Param("roomId") Long roomId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT p FROM Payment p WHERE p.room.id = :roomId AND p.status = com.pravin.maintenance_app.ENUM.PaymentStatus.PENDING AND (p.transactionReference IS NOT NULL OR p.screenshotUrl IS NOT NULL) ORDER BY p.createdAt DESC")
+    List<Payment> findSubmittedPaymentsByRoomId(@org.springframework.data.repository.query.Param("roomId") Long roomId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT p FROM Payment p WHERE p.room.id = :roomId AND p.status = com.pravin.maintenance_app.ENUM.PaymentStatus.PENDING AND p.transactionReference IS NULL AND p.screenshotUrl IS NULL ORDER BY p.createdAt DESC")
+    List<Payment> findIncompletePaymentsByRoomId(@org.springframework.data.repository.query.Param("roomId") Long roomId);
 }

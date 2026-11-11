@@ -26,4 +26,9 @@ public interface CashPaymentRequestRepository
     );
 
     long countByStatus(CashPaymentRequestStatus status);
+
+    java.util.Optional<CashPaymentRequest> findFirstByRoomIdAndStatusOrderByCreatedAtDesc(
+            Long roomId,
+            CashPaymentRequestStatus status
+    );
 }

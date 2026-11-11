@@ -24,6 +24,37 @@ public class UserDashboardResponse {
     private BigDecimal outstandingBalance;
     private CurrentMaintenanceDto currentMaintenance;
     private RecentPaymentDto recentPayment;
+    private PendingPaymentDto pendingPayment;
+
+    public UserDashboardResponse(
+            String residentName,
+            String roomNumber,
+            BigDecimal maintenanceRate,
+            BigDecimal outstandingBalance,
+            CurrentMaintenanceDto currentMaintenance,
+            RecentPaymentDto recentPayment
+    ) {
+        this.residentName = residentName;
+        this.roomNumber = roomNumber;
+        this.maintenanceRate = maintenanceRate;
+        this.outstandingBalance = outstandingBalance;
+        this.currentMaintenance = currentMaintenance;
+        this.recentPayment = recentPayment;
+        this.pendingPayment = null;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PendingPaymentDto {
+        private Long id;
+        private BigDecimal amount;
+        private PaymentMethod method;
+        private String status;
+        private LocalDateTime createdAt;
+        private String transactionReference;
+    }
 
     @Getter
     @Setter

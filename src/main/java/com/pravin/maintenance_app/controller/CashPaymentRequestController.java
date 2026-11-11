@@ -42,6 +42,18 @@ public class CashPaymentRequestController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @Operation(summary = "Get my cash payment requests", description = "Retrieves cash payment requests for current authenticated resident's room")
+    @ApiResponse(responseCode = "200", description = "Returned successfully")
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @GetMapping("/my")
+    public ResponseEntity<List<CashPaymentRequestResponse>> getMyCashRequests() {
+        List<CashPaymentRequest> requests = cashPaymentRequestService.getMyCashRequests();
+        List<CashPaymentRequestResponse> responses = requests.stream()
+                .map(cashPaymentRequestMapper::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
+    }
+
     @Operation(summary = "Get cash request by ID", description = "Retrieves a cash payment request by its ID")
     @ApiResponse(responseCode = "200", description = "Returned successfully")
     @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))

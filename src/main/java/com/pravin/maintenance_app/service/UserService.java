@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.pravin.maintenance_app.ENUM.CashPaymentRequestStatus;
+import com.pravin.maintenance_app.ENUM.PaymentMethod;
 import com.pravin.maintenance_app.config.MaintenanceProperties;
 import com.pravin.maintenance_app.dto.AdminResetPasswordResponse;
 import com.pravin.maintenance_app.dto.ChangePasswordRequest;
@@ -24,11 +26,13 @@ import com.pravin.maintenance_app.dto.ChangePasswordResponse;
 import com.pravin.maintenance_app.dto.UserDashboardResponse;
 import com.pravin.maintenance_app.dto.UserRegistrationRequest;
 import com.pravin.maintenance_app.dto.UserResponse;
+import com.pravin.maintenance_app.entity.CashPaymentRequest;
 import com.pravin.maintenance_app.entity.Maintenance;
 import com.pravin.maintenance_app.entity.Payment;
 import com.pravin.maintenance_app.entity.Room;
 import com.pravin.maintenance_app.entity.User;
 import com.pravin.maintenance_app.mapper.UserMapper;
+import com.pravin.maintenance_app.repository.CashPaymentRequestRepository;
 import com.pravin.maintenance_app.repository.MaintenanceRepository;
 import com.pravin.maintenance_app.repository.PaymentAllocationRepository;
 import com.pravin.maintenance_app.repository.PaymentRepository;
@@ -52,6 +56,7 @@ public class UserService {
     private final MaintenanceRepository maintenanceRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentAllocationRepository paymentAllocationRepository;
+    private final CashPaymentRequestRepository cashPaymentRequestRepository;
     private final MaintenanceProperties maintenanceProperties;
 
     public UserResponse registerUser(@Valid UserRegistrationRequest request) {
@@ -285,7 +290,41 @@ public class UserService {
             );
         }
 
-        return new UserDashboardResponse(
+        UserDashboardResponse.PendingPaymentDto pendingPaymentDto = null;
+        List<Payment> submittedOnline = paymentRepository.findSubmittedPaymentsByRoomId(room.getId());
+        if (!submittedOnline.isEmpty()) {
+            Payment p = submittedOnline.get(0);
+            BigDecimal amt = p.getAmount() != null
+                    ? p.getAmount().setScale(2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO.setScale(2);
+            pendingPaymentDto = new UserDashboardResponse.PendingPaymentDto(
+                    p.getId(),
+                    amt,
+                    p.getMethod(),
+                    p.getStatus().name(),
+                    p.getCreatedAt(),
+                    p.getTransactionReference()
+            );
+        } else {
+            Optional<CashPaymentRequest> pendingCashOpt = cashPaymentRequestRepository
+                    .findFirstByRoomIdAndStatusOrderByCreatedAtDesc(room.getId(), CashPaymentRequestStatus.PENDING);
+            if (pendingCashOpt.isPresent()) {
+                CashPaymentRequest c = pendingCashOpt.get();
+                BigDecimal amt = c.getAmount() != null
+                        ? c.getAmount().setScale(2, RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO.setScale(2);
+                pendingPaymentDto = new UserDashboardResponse.PendingPaymentDto(
+                        c.getId(),
+                        amt,
+                        PaymentMethod.CASH,
+                        c.getStatus().name(),
+                        c.getCreatedAt(),
+                        null
+                );
+            }
+        }
+
+        UserDashboardResponse response = new UserDashboardResponse(
                 currentUser.getName(),
                 room.getRoomNumber(),
                 configuredRate,
@@ -293,5 +332,7 @@ public class UserService {
                 currentMaintenanceDto,
                 recentPaymentDto
         );
+        response.setPendingPayment(pendingPaymentDto);
+        return response;
     }
 }

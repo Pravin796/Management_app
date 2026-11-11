@@ -5,6 +5,7 @@ import com.pravin.maintenance_app.exception.BusinessValidationException;
 import com.pravin.maintenance_app.ENUM.PaymentStatus;
 import com.pravin.maintenance_app.ENUM.CashPaymentRequestStatus;
 import com.pravin.maintenance_app.repository.CashPaymentRequestRepository;
+import com.pravin.maintenance_app.repository.RoomRepository;
 import com.pravin.maintenance_app.dto.CreatePaymentRequest;
 import com.pravin.maintenance_app.entity.Payment;
 import com.pravin.maintenance_app.entity.Room;
@@ -32,34 +33,49 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final CashPaymentRequestRepository cashPaymentRequestRepository;
+    private final RoomRepository roomRepository;
     private final RoomService roomService;
     private final PaymentMapper paymentMapper;
     private final CurrentUserService currentUserService;
     private final CloudinaryService cloudinaryService;
 
+    @Transactional
     public Payment createPayment(CreatePaymentRequest request) {
 
         User currentUser = currentUserService.getCurrentUser();
 
-        Room room = currentUser.getRoom();
-        if (room == null) {
+        Room userRoom = currentUser.getRoom();
+        if (userRoom == null) {
             throw new BusinessValidationException("User does not have an assigned room");
         }
 
-        if (paymentRepository.existsByRoomIdAndStatus(
-                room.getId(),
-                PaymentStatus.PENDING)) {
-
-            throw new BusinessValidationException(
-                    "Room already has a pending payment");
-        }
+        // Pessimistic lock on Room to prevent concurrent payment/cash creation race conditions
+        Room room = roomRepository.findByIdForUpdate(userRoom.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + userRoom.getId()));
 
         if (cashPaymentRequestRepository.existsByRoomIdAndStatus(
                 room.getId(),
                 CashPaymentRequestStatus.PENDING)) {
 
             throw new BusinessValidationException(
-                    "Room already has a pending cash payment request");
+                    "You have a cash payment request awaiting admin verification. You cannot initiate another payment until it is reviewed.");
+        }
+
+        if (paymentRepository.existsSubmittedPaymentByRoomId(room.getId())) {
+            throw new BusinessValidationException(
+                    "You have an online payment awaiting admin verification. You cannot initiate another payment until it is reviewed.");
+        }
+
+        // If there is already an incomplete payment intent (proof not yet submitted), reuse/update it
+        List<Payment> incompletePayments = paymentRepository.findIncompletePaymentsByRoomId(room.getId());
+        if (!incompletePayments.isEmpty()) {
+            Payment existingPayment = incompletePayments.get(0);
+            existingPayment.setAmount(request.getAmount());
+            if (request.getMethod() != null) {
+                existingPayment.setMethod(request.getMethod());
+            }
+            existingPayment.setUpdatedAt(LocalDateTime.now());
+            return paymentRepository.save(existingPayment);
         }
 
         Payment payment = paymentMapper.toEntity(request);
@@ -125,6 +141,20 @@ public class PaymentService {
 
         Payment payment = getPaymentById(paymentId);
 
+        // Pessimistic lock on Room to prevent concurrency race conditions
+        Room room = roomRepository.findByIdForUpdate(payment.getRoom().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + payment.getRoom().getId()));
+
+        if (cashPaymentRequestRepository.existsByRoomIdAndStatus(room.getId(), CashPaymentRequestStatus.PENDING)) {
+            throw new BusinessValidationException("You have a cash payment request awaiting admin verification. You cannot submit online payment proof.");
+        }
+
+        List<Payment> submitted = paymentRepository.findSubmittedPaymentsByRoomId(room.getId());
+        boolean otherSubmitted = submitted.stream().anyMatch(p -> !p.getId().equals(payment.getId()));
+        if (otherSubmitted) {
+            throw new BusinessValidationException("Another payment for this room is already awaiting admin verification.");
+        }
+
         if (payment.getStatus() != PaymentStatus.PENDING) {
             throw new BusinessValidationException("Only pending payments can have payment proof updated.");
         }
@@ -169,6 +199,20 @@ public class PaymentService {
 
         // Authenticate resident and verify payment ownership
         Payment payment = getPaymentById(paymentId);
+
+        // Pessimistic lock on Room to serialize submissions and prevent concurrency race conditions
+        Room room = roomRepository.findByIdForUpdate(payment.getRoom().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + payment.getRoom().getId()));
+
+        if (cashPaymentRequestRepository.existsByRoomIdAndStatus(room.getId(), CashPaymentRequestStatus.PENDING)) {
+            throw new BusinessValidationException("You have a cash payment request awaiting admin verification. You cannot submit online payment proof.");
+        }
+
+        List<Payment> submitted = paymentRepository.findSubmittedPaymentsByRoomId(room.getId());
+        boolean otherSubmitted = submitted.stream().anyMatch(p -> !p.getId().equals(payment.getId()));
+        if (otherSubmitted) {
+            throw new BusinessValidationException("Another payment for this room is already awaiting admin verification.");
+        }
 
         // Validate payment status and eligibility before uploading
         if (payment.getStatus() != PaymentStatus.PENDING) {
