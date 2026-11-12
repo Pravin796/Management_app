@@ -9,6 +9,7 @@ import com.pravin.maintenance_app.entity.Maintenance;
 import com.pravin.maintenance_app.entity.Payment;
 import com.pravin.maintenance_app.entity.PaymentAllocation;
 import com.pravin.maintenance_app.mapper.PaymentAllocationMapper;
+import com.pravin.maintenance_app.repository.MaintenanceRepository;
 import com.pravin.maintenance_app.repository.PaymentAllocationRepository;
 import com.pravin.maintenance_app.repository.PaymentRepository;
 import com.pravin.maintenance_app.security.CurrentUserService;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -28,9 +30,9 @@ public class PaymentAllocationService {
 
     private final PaymentAllocationRepository paymentAllocationRepository;
     private final PaymentRepository paymentRepository;
+    private final MaintenanceRepository maintenanceRepository;
     private final MaintenanceService maintenanceService;
     private final PaymentAllocationMapper paymentAllocationMapper;
-    private final PaymentService paymentService;
     private final CurrentUserService currentUserService;
 
     @Transactional
@@ -114,7 +116,13 @@ public class PaymentAllocationService {
     public List<PaymentAllocation> getAllocationsByPayment(
             Long paymentId
     ) {
-        paymentService.getPaymentById(paymentId);
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found with id: " + paymentId));
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN
+                && (currentUser.getRoom() == null || !currentUser.getRoom().getId().equals(payment.getRoom().getId()))) {
+            throw new AccessDeniedException("You are not allowed to access allocations for this payment");
+        }
 
         return paymentAllocationRepository.findByPaymentId(paymentId);
     }
@@ -126,6 +134,63 @@ public class PaymentAllocationService {
 
         return paymentAllocationRepository
                 .findByMaintenanceId(maintenanceId);
+    }
+
+    @Transactional
+    public void autoAllocatePaymentToOldestMaintenance(Payment payment) {
+        if (payment == null || payment.getStatus() != PaymentStatus.VERIFIED) {
+            return;
+        }
+
+        BigDecimal allocatedPaymentAmount = getVerifiedAllocatedAmount(payment.getId());
+        BigDecimal remainingPaymentAmount = payment.getAmount().subtract(allocatedPaymentAmount);
+
+        if (remainingPaymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+
+        List<Maintenance> maintenanceList = maintenanceRepository
+                .findByRoomIdOrderByBillingMonthAsc(payment.getRoom().getId());
+
+        for (Maintenance maintenance : maintenanceList) {
+            if (maintenance.getStatus() == MaintenanceStatus.PAID) {
+                continue;
+            }
+
+            BigDecimal allocatedMaintenanceAmount = paymentAllocationRepository
+                    .getVerifiedAmountByMaintenanceId(maintenance.getId());
+            BigDecimal remainingMaintenanceAmount = maintenance.getAmount().subtract(allocatedMaintenanceAmount);
+
+            if (remainingMaintenanceAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                updateMaintenanceStatus(maintenance);
+                continue;
+            }
+
+            BigDecimal allocationAmount = remainingPaymentAmount.min(remainingMaintenanceAmount);
+
+            Optional<PaymentAllocation> existingAllocOpt = paymentAllocationRepository
+                    .findByPaymentIdAndMaintenanceId(payment.getId(), maintenance.getId());
+
+            PaymentAllocation allocation;
+            if (existingAllocOpt.isPresent()) {
+                allocation = existingAllocOpt.get();
+                allocation.setAmount(allocation.getAmount().add(allocationAmount));
+            } else {
+                allocation = PaymentAllocation.builder()
+                        .payment(payment)
+                        .maintenance(maintenance)
+                        .amount(allocationAmount)
+                        .build();
+            }
+
+            paymentAllocationRepository.save(allocation);
+            updateMaintenanceStatus(maintenance);
+
+            remainingPaymentAmount = remainingPaymentAmount.subtract(allocationAmount);
+            if (remainingPaymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+        }
     }
 
     private BigDecimal getVerifiedAllocatedAmount(Long paymentId) {
@@ -156,5 +221,6 @@ public class PaymentAllocationService {
         } else {
             maintenance.setStatus(MaintenanceStatus.PENDING);
         }
+        maintenanceRepository.save(maintenance);
     }
 }

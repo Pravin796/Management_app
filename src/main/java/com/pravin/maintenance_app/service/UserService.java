@@ -19,6 +19,7 @@ import java.util.Optional;
 
 import com.pravin.maintenance_app.ENUM.CashPaymentRequestStatus;
 import com.pravin.maintenance_app.ENUM.PaymentMethod;
+import com.pravin.maintenance_app.ENUM.PaymentStatus;
 import com.pravin.maintenance_app.config.MaintenanceProperties;
 import com.pravin.maintenance_app.dto.AdminResetPasswordResponse;
 import com.pravin.maintenance_app.dto.ChangePasswordRequest;
@@ -41,9 +42,13 @@ import com.pravin.maintenance_app.security.CurrentUserService;
 import org.springframework.security.access.AccessDeniedException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -58,6 +63,8 @@ public class UserService {
     private final PaymentAllocationRepository paymentAllocationRepository;
     private final CashPaymentRequestRepository cashPaymentRequestRepository;
     private final MaintenanceProperties maintenanceProperties;
+    private final MaintenanceService maintenanceService;
+    private final CloudinaryService cloudinaryService;
 
     public UserResponse registerUser(@Valid UserRegistrationRequest request) {
 
@@ -222,7 +229,7 @@ public class UserService {
                 ? maintenanceProperties.getMonthlyAmount().setScale(2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO.setScale(2);
 
-        BigDecimal outstandingBalance = BigDecimal.ZERO.setScale(2);
+        BigDecimal outstandingBalance = maintenanceService.calculateOutstandingBalance(room.getId());
         UserDashboardResponse.CurrentMaintenanceDto currentMaintenanceDto = null;
 
         if (!room.isMaintenanceExempt()) {
@@ -240,18 +247,10 @@ public class UserService {
                     }
                 }
 
-                BigDecimal totalOutstanding = BigDecimal.ZERO;
                 YearMonth currentMonth = YearMonth.now();
 
                 for (Maintenance m : maintenanceList) {
                     BigDecimal allocated = allocatedMap.getOrDefault(m.getId(), BigDecimal.ZERO);
-
-                    if (m.getStatus() != MaintenanceStatus.PAID) {
-                        BigDecimal remaining = m.getAmount().subtract(allocated);
-                        if (remaining.compareTo(BigDecimal.ZERO) > 0) {
-                            totalOutstanding = totalOutstanding.add(remaining);
-                        }
-                    }
 
                     if (currentMonth.equals(m.getBillingMonth())) {
                         MaintenanceStatus status = m.getStatus();
@@ -269,7 +268,6 @@ public class UserService {
                         );
                     }
                 }
-                outstandingBalance = totalOutstanding.setScale(2, RoundingMode.HALF_UP);
             }
         }
 
@@ -291,9 +289,9 @@ public class UserService {
         }
 
         UserDashboardResponse.PendingPaymentDto pendingPaymentDto = null;
-        List<Payment> submittedOnline = paymentRepository.findSubmittedPaymentsByRoomId(room.getId());
-        if (!submittedOnline.isEmpty()) {
-            Payment p = submittedOnline.get(0);
+        List<Payment> pendingOnlineList = paymentRepository.findByRoomIdAndStatus(room.getId(), PaymentStatus.PENDING);
+        if (!pendingOnlineList.isEmpty()) {
+            Payment p = pendingOnlineList.get(0);
             BigDecimal amt = p.getAmount() != null
                     ? p.getAmount().setScale(2, RoundingMode.HALF_UP)
                     : BigDecimal.ZERO.setScale(2);
@@ -333,6 +331,69 @@ public class UserService {
                 recentPaymentDto
         );
         response.setPendingPayment(pendingPaymentDto);
+        response.setProfilePictureUrl(currentUser.getProfilePictureUrl());
         return response;
+    }
+
+    public UserResponse getCurrentUserProfile() {
+        User currentUser = currentUserService.getCurrentUser();
+        return userMapper.toResponse(currentUser);
+    }
+
+    @Transactional
+    public UserResponse uploadProfilePicture(MultipartFile file) {
+        User currentUser = currentUserService.getCurrentUser();
+
+        // 1. Upload to Cloudinary under "profile_pictures" folder
+        Map<String, String> uploadResult = cloudinaryService.uploadImage(file, "profile_pictures");
+        String newUrl = uploadResult.get("url");
+        String newPublicId = uploadResult.get("publicId");
+
+        String oldPublicId = currentUser.getProfilePicturePublicId();
+
+        try {
+            currentUser.setProfilePictureUrl(newUrl);
+            currentUser.setProfilePicturePublicId(newPublicId);
+            User savedUser = userRepository.save(currentUser);
+
+            // Delete old picture if it existed
+            if (oldPublicId != null && !oldPublicId.isBlank()) {
+                try {
+                    cloudinaryService.deleteImage(oldPublicId);
+                } catch (Exception e) {
+                    log.warn("Failed to delete old profile picture from Cloudinary: {}", oldPublicId, e);
+                }
+            }
+
+            return userMapper.toResponse(savedUser);
+        } catch (Exception e) {
+            // DB persistence failed, clean up the newly uploaded asset
+            try {
+                cloudinaryService.deleteImage(newPublicId);
+            } catch (Exception deleteEx) {
+                log.warn("Failed to roll back newly uploaded profile picture from Cloudinary: {}", newPublicId, deleteEx);
+            }
+            throw e;
+        }
+    }
+
+    @Transactional
+    public UserResponse removeProfilePicture() {
+        User currentUser = currentUserService.getCurrentUser();
+        String oldPublicId = currentUser.getProfilePicturePublicId();
+
+        currentUser.setProfilePictureUrl(null);
+        currentUser.setProfilePicturePublicId(null);
+        User savedUser = userRepository.save(currentUser);
+
+        if (oldPublicId != null && !oldPublicId.isBlank()) {
+            try {
+                cloudinaryService.deleteImage(oldPublicId);
+            } catch (Exception e) {
+                log.warn("Failed to delete profile picture from Cloudinary: {}", oldPublicId, e);
+            }
+        }
+
+        return userMapper.toResponse(savedUser);
     }
 }

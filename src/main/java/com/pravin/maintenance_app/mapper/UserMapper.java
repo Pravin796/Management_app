@@ -18,6 +18,8 @@ public interface UserMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "passwordResetAt", ignore = true)
+    @Mapping(target = "profilePictureUrl", ignore = true)
+    @Mapping(target = "profilePicturePublicId", ignore = true)
     User toEntity(@Valid UserRegistrationRequest request);
 
     @Mapping(target = "roomNumber", source = "room.roomNumber")

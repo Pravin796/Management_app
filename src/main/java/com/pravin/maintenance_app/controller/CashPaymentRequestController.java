@@ -90,6 +90,32 @@ public class CashPaymentRequestController {
         return ResponseEntity.ok(responses);
     }
 
+    @Operation(summary = "Get all cash requests (ADMIN)", description = "Retrieves all cash payment requests across all rooms and statuses. Requires ADMIN role.")
+    @ApiResponse(responseCode = "200", description = "Returned successfully")
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @GetMapping("/admin/all")
+    public ResponseEntity<List<CashPaymentRequestResponse>> getAllCashRequestsAdmin() {
+        List<CashPaymentRequest> requests = cashPaymentRequestService.getAllCashRequestsAdmin();
+        List<CashPaymentRequestResponse> responses = requests.stream()
+                .map(cashPaymentRequestMapper::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
+    }
+
+    @Operation(summary = "Get all rejected cash requests (ADMIN)", description = "Retrieves all rejected cash payment requests across all rooms. Requires ADMIN role.")
+    @ApiResponse(responseCode = "200", description = "Returned successfully")
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @GetMapping("/admin/rejected")
+    public ResponseEntity<List<CashPaymentRequestResponse>> getAllRejectedCashRequests() {
+        List<CashPaymentRequest> requests = cashPaymentRequestService.getAllRejectedCashRequests();
+        List<CashPaymentRequestResponse> responses = requests.stream()
+                .map(cashPaymentRequestMapper::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
+    }
+
     @Operation(summary = "Verify cash request (ADMIN)", description = "Verifies a cash payment request. This endpoint requires an authenticated user with ADMIN role.")
     @ApiResponse(responseCode = "200", description = "Verified successfully")
     @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))

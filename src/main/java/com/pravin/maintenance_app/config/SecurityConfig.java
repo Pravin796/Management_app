@@ -70,11 +70,10 @@ public class SecurityConfig {
                                                 .permitAll()
 
                                                 .requestMatchers(
-                                                                "/api/cash-payments/admin/pending",
+                                                                "/api/cash-payments/admin/**",
                                                                 "/api/cash-payments/*/verify",
                                                                 "/api/cash-payments/*/reject",
-                                                                "/api/payments/admin/pending",
-                                                                "/api/payments/admin/verified",
+                                                                "/api/payments/admin/**",
                                                                 "/api/payments/*/verify",
                                                                 "/api/payments/*/reject")
                                                 .hasRole("ADMIN")

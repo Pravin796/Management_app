@@ -154,6 +154,32 @@ public class PaymentController {
         return ResponseEntity.ok(responses);
     }
 
+    @Operation(summary = "Get all payments (ADMIN)", description = "Retrieves all payments across all rooms and statuses. Requires ADMIN role.")
+    @ApiResponse(responseCode = "200", description = "Returned successfully")
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @GetMapping("/admin/all")
+    public ResponseEntity<List<PaymentResponse>> getAllPaymentsAdmin() {
+        List<Payment> payments = paymentService.getAllPaymentsAdmin();
+        List<PaymentResponse> responses = payments.stream()
+                .map(paymentMapper::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
+    }
+
+    @Operation(summary = "Get all rejected payments (ADMIN)", description = "Retrieves all rejected payments across all rooms. Requires ADMIN role.")
+    @ApiResponse(responseCode = "200", description = "Returned successfully")
+    @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    @GetMapping("/admin/rejected")
+    public ResponseEntity<List<PaymentResponse>> getAllRejectedPayments() {
+        List<Payment> payments = paymentService.getAllRejectedPayments();
+        List<PaymentResponse> responses = payments.stream()
+                .map(paymentMapper::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
+    }
+
     @Operation(summary = "Reject payment (ADMIN)", description = "Rejects a payment. Requires ADMIN role.")
     @ApiResponse(responseCode = "200", description = "Rejected successfully")
     @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))

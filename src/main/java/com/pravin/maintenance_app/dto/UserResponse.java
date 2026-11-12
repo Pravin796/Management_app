@@ -12,6 +12,7 @@ public class UserResponse {
     private String role;
     private String status;
     private LocalDateTime passwordResetAt;
+    private String profilePictureUrl;
 
     public UserResponse() {
     }
@@ -78,5 +79,13 @@ public class UserResponse {
 
     public void setPasswordResetAt(LocalDateTime passwordResetAt) {
         this.passwordResetAt = passwordResetAt;
+    }
+
+    public String getProfilePictureUrl() {
+        return profilePictureUrl;
+    }
+
+    public void setProfilePictureUrl(String profilePictureUrl) {
+        this.profilePictureUrl = profilePictureUrl;
     }
 }

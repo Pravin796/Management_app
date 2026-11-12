@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 public interface PaymentAllocationRepository
         extends JpaRepository<PaymentAllocation, Long> {
@@ -14,6 +15,8 @@ public interface PaymentAllocationRepository
     List<PaymentAllocation> findByMaintenanceId(Long maintenanceId);
 
     List<PaymentAllocation> findByPaymentId(Long paymentId);
+
+    Optional<PaymentAllocation> findByPaymentIdAndMaintenanceId(Long paymentId, Long maintenanceId);
 
     @Query("""
             SELECT COALESCE(SUM(pa.amount), 0)

@@ -45,6 +45,7 @@ public class AuthService {
         response.setRole(user.getRole().name());
         response.setToken(token);
         response.setMustChangePassword(user.isMustChangePassword());
+        response.setProfilePictureUrl(user.getProfilePictureUrl());
 
         return response;
     }

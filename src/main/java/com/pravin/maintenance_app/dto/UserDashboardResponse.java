@@ -25,6 +25,7 @@ public class UserDashboardResponse {
     private CurrentMaintenanceDto currentMaintenance;
     private RecentPaymentDto recentPayment;
     private PendingPaymentDto pendingPayment;
+    private String profilePictureUrl;
 
     public UserDashboardResponse(
             String residentName,
@@ -41,6 +42,7 @@ public class UserDashboardResponse {
         this.currentMaintenance = currentMaintenance;
         this.recentPayment = recentPayment;
         this.pendingPayment = null;
+        this.profilePictureUrl = null;
     }
 
     @Getter

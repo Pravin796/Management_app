@@ -312,6 +312,73 @@ Single source of truth for verified progress, test evidence, blockers, and activ
 |---|---|---|---|---|
 | Get My Cash Requests | `GET` | `/api/cash-payments/my` | Authenticated Resident / Admin | `200 OK` `List<CashPaymentRequestResponse>` |
 | Get User Dashboard | `GET` | `/api/users/dashboard` | Authenticated Resident / Admin | `200 OK` Includes `pendingPayment` DTO when awaiting review |
+| Get All Admin Payments | `GET` | `/api/payments/admin/all` | `ROLE_ADMIN` | `200 OK` `List<Payment>` (PENDING, VERIFIED, REJECTED) |
+| Get Rejected Payments | `GET` | `/api/payments/admin/rejected` | `ROLE_ADMIN` | `200 OK` `List<Payment>` |
+| Get All Admin Cash Requests | `GET` | `/api/cash-payments/admin/all` | `ROLE_ADMIN` | `200 OK` `List<CashPaymentRequest>` |
+| Get Rejected Cash Requests | `GET` | `/api/cash-payments/admin/rejected` | `ROLE_ADMIN` | `200 OK` `List<CashPaymentRequest>` |
+| Upload Profile Picture | `POST` | `/api/users/me/profile-picture` | Authenticated Resident / Admin | `200 OK` `UserResponse` with `profilePictureUrl` |
+| Remove Profile Picture | `DELETE` | `/api/users/me/profile-picture` | Authenticated Resident / Admin | `200 OK` `UserResponse` |
+| Get My Profile | `GET` | `/api/users/me` | Authenticated Resident / Admin | `200 OK` `UserResponse` with `profilePictureUrl` |
+
+---
+
+## 7. Payment Eligibility, Auto-Allocation & Admin Overwrite Resolution (2026-11-12)
+
+### A. Root Cause of Admin Payment List Overwrite
+1. **Frontend Mutation of Existing Pending Rows**: In `OnlinePaymentScreen.js`, if `createPayment` returned an error that a pending payment already existed, the `catch` block queried `/payments/my`, retrieved the existing pending payment ID, and called `submitPaymentProof(existingPayment.id, ...)`, mutating the previous payment proof and reference in-place.
+2. **Backend Row Recycling**: In `PaymentService.createPayment`, the service previously called `findIncompletePaymentsByRoomId` and recycled existing payment records rather than inserting new entities.
+3. **Missing Admin History Endpoints**: The admin review endpoints only fetched `PENDING` and `VERIFIED` records; `REJECTED` payments vanished completely from view.
+4. **Hardcoded Filter in AdminDashboardScreen**: In `AdminDashboardScreen.js`, the "All" filter was hardcoded to `return pStatus === 'pending'`, hiding all verified and rejected historical records.
+5. **Dynamic / Unstable React Keys**: The admin list used dynamic keys (`online_${p.id}` when pending, changing to `verified_${p.id}` upon verification), which caused list churning and component re-mount issues across state changes.
+
+### B. Implementation Details
+1. **Cross-Method Payment Submission Restrictions**:
+   - Backend `PaymentService.createPayment` and `CashPaymentRequestService.createRequest` strictly enforce cross-method payment intent locking: a resident cannot submit an online payment or declare cash if an active payment of either method is awaiting verification (`status = PENDING`).
+   - If outstanding maintenance is zero or the room is exempt, new payment initiation is rejected.
+   - The payable amount cannot exceed actual outstanding dues.
+
+2. **Monthly Eligibility & Outstanding Balance Calculation**:
+   - `MaintenanceService.calculateOutstandingBalance(roomId)` computes total outstanding maintenance strictly from active monthly maintenance records minus verified `PaymentAllocation` records.
+   - Pending, rejected, and failed payments do not count as paid.
+   - `UserService.getUserDashboard` delegates directly to `MaintenanceService` for consistent financial accounting.
+
+3. **Oldest-First Auto-Allocation**:
+   - `PaymentAllocationService.autoAllocatePaymentToOldestMaintenance(Payment payment)` automatically allocates verified payments to the oldest outstanding months first.
+   - Prevents over-allocation: the allocated amount per month cannot exceed that month's unpaid balance.
+   - Sets monthly maintenance status to `PAID` once fully settled, or `PARTIALLY_PAID` if a remaining balance exists.
+
+4. **Independent Record Creation & Stable React Keys**:
+   - Removed payment row-recycling. Every submission produces a new database row with a unique ID.
+   - Backend exposes `/api/payments/admin/all` and `/api/cash-payments/admin/all` with role-based admin security.
+   - Admin UI maps items using stable identifiers (`pay-${id}` and `cash-${id}`).
+   - Filter pills allow filtering by `All`, `Pending`, `Online`, `Cash`, `Verified`, and `Rejected`.
+   - Item cards display visual status badges and color-coded banners for all states (including red banner for Rejected payments with admin remarks).
+
+5. **Network Connectivity & IP Alignment**:
+   - Diagnosed host DHCP IP address (`192.168.1.80`) and aligned `frontend-maintenance-app/.env` (`EXPO_PUBLIC_API_URL=http://192.168.1.80:8080/api`).
+
+---
+
+## 8. Resident Profile Photo Upload & Admin Visibility (2026-11-12)
+
+### A. Architecture & Requirements Fulfillment
+1. **Post-Registration Profile Photo Management**:
+   - Registration flow (`RegisterScreen.js` and `POST /api/auth/register`) strictly preserved without image upload.
+   - Authenticated residents can upload and update their profile picture anytime from the Profile tab in `DashboardScreen.js`.
+2. **Cloudinary Integration & Automatic Cleanup**:
+   - Uploads to folder `profile_pictures` via `POST /api/users/me/profile-picture` (`MultipartFile file`).
+   - Persists `profile_picture_url` and `profile_picture_public_id` on the `User` entity.
+   - Automatically cleans up the previous Cloudinary asset when replacing or removing a profile photo.
+   - Rollback compensation deletes newly uploaded asset if database persistence fails.
+3. **Database Migration**:
+   - Flyway migration `V8__add_profile_picture_to_users.sql` adds `profile_picture_url` and `profile_picture_public_id` to the `users` table.
+4. **Admin Room Visibility**:
+   - `UserResponse` includes `profilePictureUrl`.
+   - `AdminDashboardScreen.js` Tab 2 (Rooms list): each occupied room row renders the resident's profile picture thumbnail next to the room number.
+   - In Room Details modal (`selectedRoomDetail`): displays the resident's full circular profile picture avatar with graceful fallback to default icon if vacant or no picture uploaded.
+5. **Universal Header Display**:
+   - `ScreenHeader.js` across all resident tabs (Home, Payments, History, Profile) immediately reflects the uploaded profile picture.
+
 
 
 

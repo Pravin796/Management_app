@@ -21,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.pravin.maintenance_app.dto.UpdatePaymentProofRequest;
 import com.pravin.maintenance_app.ENUM.Role;
+import org.springframework.data.domain.Sort;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,8 @@ public class PaymentService {
     private final PaymentMapper paymentMapper;
     private final CurrentUserService currentUserService;
     private final CloudinaryService cloudinaryService;
+    private final PaymentAllocationService paymentAllocationService;
+    private final MaintenanceService maintenanceService;
 
     @Transactional
     public Payment createPayment(CreatePaymentRequest request) {
@@ -49,39 +53,42 @@ public class PaymentService {
             throw new BusinessValidationException("User does not have an assigned room");
         }
 
-        // Pessimistic lock on Room to prevent concurrent payment/cash creation race
-        // conditions
+        // Pessimistic lock on Room to prevent concurrent payment/cash creation race conditions
         Room room = roomRepository.findByIdForUpdate(userRoom.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + userRoom.getId()));
 
         if (cashPaymentRequestRepository.existsByRoomIdAndStatus(
                 room.getId(),
                 CashPaymentRequestStatus.PENDING)) {
-
             throw new BusinessValidationException(
                     "You have a cash payment request awaiting admin verification. You cannot initiate another payment until it is reviewed.");
         }
 
-        if (paymentRepository.existsSubmittedPaymentByRoomId(room.getId())) {
+        if (paymentRepository.existsByRoomIdAndStatus(room.getId(), PaymentStatus.PENDING)) {
             throw new BusinessValidationException(
                     "You have an online payment awaiting admin verification. You cannot initiate another payment until it is reviewed.");
         }
 
-        // If there is already an incomplete payment intent (proof not yet submitted),
-        // reuse/update it
-        List<Payment> incompletePayments = paymentRepository.findIncompletePaymentsByRoomId(room.getId());
-        if (!incompletePayments.isEmpty()) {
-            Payment existingPayment = incompletePayments.get(0);
-            existingPayment.setAmount(request.getAmount());
-            if (request.getMethod() != null) {
-                existingPayment.setMethod(request.getMethod());
-            }
-            existingPayment.setUpdatedAt(LocalDateTime.now());
-            return paymentRepository.save(existingPayment);
+        if (room.isMaintenanceExempt()) {
+            throw new BusinessValidationException("Room " + room.getRoomNumber() + " is exempt from maintenance payments.");
         }
 
-        Payment payment = paymentMapper.toEntity(request);
+        BigDecimal outstandingBalance = maintenanceService.calculateOutstandingBalance(room.getId());
+        if (outstandingBalance.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessValidationException("All maintenance dues are cleared. There are no outstanding dues to pay.");
+        }
 
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessValidationException("Payment amount must be greater than zero.");
+        }
+
+        if (request.getAmount().compareTo(outstandingBalance) > 0) {
+            throw new BusinessValidationException(
+                    "Payment amount of ₹" + request.getAmount() + " exceeds total outstanding maintenance balance of ₹" + outstandingBalance);
+        }
+
+        // Every payment submission creates its own record with a unique auto-generated ID
+        Payment payment = paymentMapper.toEntity(request);
         payment.setRoom(room);
         payment.setStatus(PaymentStatus.PENDING);
         payment.setCreatedAt(LocalDateTime.now());
@@ -269,7 +276,12 @@ public class PaymentService {
         payment.setVerifiedAt(LocalDateTime.now());
         payment.setUpdatedAt(LocalDateTime.now());
 
-        return paymentRepository.save(payment);
+        Payment savedPayment = paymentRepository.save(payment);
+
+        // Auto-allocate payment to oldest outstanding months first
+        paymentAllocationService.autoAllocatePaymentToOldestMaintenance(savedPayment);
+
+        return savedPayment;
     }
 
     public List<Payment> getMyPayments() {
@@ -295,6 +307,24 @@ public class PaymentService {
         }
 
         return paymentRepository.findByStatus(PaymentStatus.VERIFIED);
+    }
+
+    public List<Payment> getAllPaymentsAdmin() {
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only ADMIN can access all payments");
+        }
+
+        return paymentRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt", "id"));
+    }
+
+    public List<Payment> getAllRejectedPayments() {
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only ADMIN can access rejected payments");
+        }
+
+        return paymentRepository.findByStatus(PaymentStatus.REJECTED);
     }
 
     @Transactional

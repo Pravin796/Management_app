@@ -22,6 +22,7 @@ import com.pravin.maintenance_app.entity.User;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -38,6 +39,7 @@ public class CashPaymentRequestService {
         private final PaymentRepository paymentRepository;
         private final RoomRepository roomRepository;
         private final PaymentAllocationService paymentAllocationService;
+        private final MaintenanceService maintenanceService;
         private final CurrentUserService currentUserService;
 
         @Transactional
@@ -61,9 +63,27 @@ public class CashPaymentRequestService {
                                         "You have a cash payment request awaiting admin verification. You cannot initiate another payment until it is reviewed.");
                 }
 
-                if (paymentRepository.existsSubmittedPaymentByRoomId(room.getId())) {
+                if (paymentRepository.existsByRoomIdAndStatus(room.getId(), PaymentStatus.PENDING)) {
                         throw new BusinessValidationException(
                                         "You have an online payment awaiting admin verification. You cannot initiate another payment until it is reviewed.");
+                }
+
+                if (room.isMaintenanceExempt()) {
+                        throw new BusinessValidationException("Room " + room.getRoomNumber() + " is exempt from maintenance payments.");
+                }
+
+                BigDecimal outstandingBalance = maintenanceService.calculateOutstandingBalance(room.getId());
+                if (outstandingBalance.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new BusinessValidationException("All maintenance dues are cleared. There are no outstanding dues to pay.");
+                }
+
+                if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new BusinessValidationException("Payment amount must be greater than zero.");
+                }
+
+                if (request.getAmount().compareTo(outstandingBalance) > 0) {
+                        throw new BusinessValidationException(
+                                        "Payment amount of ₹" + request.getAmount() + " exceeds total outstanding maintenance balance of ₹" + outstandingBalance);
                 }
 
                 CashPaymentRequest cashPaymentRequest = cashPaymentRequestMapper.toEntity(request);
@@ -186,18 +206,23 @@ public class CashPaymentRequestService {
                 /*
                  * Create allocations.
                  */
-                for (CashPaymentAllocationRequest allocationRequest : request.getAllocations()) {
+                if (request.getAllocations() != null) {
+                    for (CashPaymentAllocationRequest allocationRequest : request.getAllocations()) {
 
-                        CreatePaymentAllocationRequest allocation = new CreatePaymentAllocationRequest();
+                            CreatePaymentAllocationRequest allocation = new CreatePaymentAllocationRequest();
 
-                        allocation.setPaymentId(payment.getId());
-                        allocation.setMaintenanceId(
-                                        allocationRequest.getMaintenanceId());
-                        allocation.setAmount(
-                                        allocationRequest.getAmount());
+                            allocation.setPaymentId(payment.getId());
+                            allocation.setMaintenanceId(
+                                            allocationRequest.getMaintenanceId());
+                            allocation.setAmount(
+                                            allocationRequest.getAmount());
 
-                        paymentAllocationService.createAllocation(allocation);
+                            paymentAllocationService.createAllocation(allocation);
+                    }
                 }
+
+                // Auto-allocate any remaining payment amount to oldest outstanding months
+                paymentAllocationService.autoAllocatePaymentToOldestMaintenance(payment);
 
                 /*
                  * Mark cash request as verified.
@@ -253,5 +278,23 @@ public class CashPaymentRequestService {
                         throw new BusinessValidationException(
                                         "Allocation total must exactly match cash payment amount");
                 }
+        }
+
+        public List<CashPaymentRequest> getAllCashRequestsAdmin() {
+                User currentUser = currentUserService.getCurrentUser();
+                if (currentUser.getRole() != Role.ADMIN) {
+                        throw new AccessDeniedException("Only ADMIN can access all cash requests");
+                }
+
+                return cashPaymentRequestRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt", "id"));
+        }
+
+        public List<CashPaymentRequest> getAllRejectedCashRequests() {
+                User currentUser = currentUserService.getCurrentUser();
+                if (currentUser.getRole() != Role.ADMIN) {
+                        throw new AccessDeniedException("Only ADMIN can access rejected cash requests");
+                }
+
+                return cashPaymentRequestRepository.findByStatus(CashPaymentRequestStatus.REJECTED);
         }
 }

@@ -60,6 +60,12 @@ public class User {
     @Column(name = "password_reset_at")
     private LocalDateTime passwordResetAt;
 
+    @Column(name = "profile_picture_url")
+    private String profilePictureUrl;
+
+    @Column(name = "profile_picture_public_id")
+    private String profilePicturePublicId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role;

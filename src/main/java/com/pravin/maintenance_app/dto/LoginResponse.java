@@ -8,6 +8,7 @@ public class LoginResponse {
     private String role;
     private String token;
     private boolean mustChangePassword;
+    private String profilePictureUrl;
 
     public LoginResponse() {
     }
@@ -58,5 +59,13 @@ public class LoginResponse {
 
     public void setMustChangePassword(boolean mustChangePassword) {
         this.mustChangePassword = mustChangePassword;
+    }
+
+    public String getProfilePictureUrl() {
+        return profilePictureUrl;
+    }
+
+    public void setProfilePictureUrl(String profilePictureUrl) {
+        this.profilePictureUrl = profilePictureUrl;
     }
 }

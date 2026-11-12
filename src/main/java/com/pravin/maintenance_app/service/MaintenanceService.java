@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.YearMonth;
 import java.util.HashMap;
 import java.util.List;
@@ -204,5 +205,43 @@ public class MaintenanceService {
                 User user = currentUserService.getCurrentUser();
                 Long roomId = user.getRoom().getId();
                 return getMaintenanceResponsesByRoom(roomId);
+        }
+
+        public BigDecimal calculateOutstandingBalance(Long roomId) {
+                Room room = roomService.getRoomById(roomId);
+                if (room.isMaintenanceExempt()) {
+                        return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+                }
+
+                List<Maintenance> maintenanceList = maintenanceRepository.findByRoomId(roomId);
+                if (maintenanceList.isEmpty()) {
+                        return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+                }
+
+                Map<Long, BigDecimal> allocatedMap = new HashMap<>();
+                List<Object[]> allocationRows = paymentAllocationRepository
+                                .getVerifiedAmountByRoomIdGroupedByMaintenanceId(roomId);
+                if (allocationRows != null && !allocationRows.isEmpty()) {
+                        for (Object[] row : allocationRows) {
+                                Long maintenanceId = (Long) row[0];
+                                BigDecimal allocatedAmount = row[1] instanceof BigDecimal b ? b
+                                                : new BigDecimal(row[1].toString());
+                                allocatedMap.put(maintenanceId, allocatedAmount);
+                        }
+                }
+
+                BigDecimal totalOutstanding = BigDecimal.ZERO;
+                for (Maintenance m : maintenanceList) {
+                        if (m.getStatus() == MaintenanceStatus.PAID) {
+                                continue;
+                        }
+                        BigDecimal allocated = allocatedMap.getOrDefault(m.getId(), BigDecimal.ZERO);
+                        BigDecimal remaining = m.getAmount().subtract(allocated);
+                        if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+                                totalOutstanding = totalOutstanding.add(remaining);
+                        }
+                }
+
+                return totalOutstanding.setScale(2, RoundingMode.HALF_UP);
         }
 }

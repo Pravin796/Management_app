@@ -20,6 +20,8 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long> 
 
         List<Maintenance> findByRoomId(Long roomId);
 
+        List<Maintenance> findByRoomIdOrderByBillingMonthAsc(Long roomId);
+
         @Query("SELECT m FROM Maintenance m WHERE m.room.maintenanceExempt = false")
         List<Maintenance> findAllNonExemptMaintenance();
 }
