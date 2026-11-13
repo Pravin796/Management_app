@@ -382,3 +382,47 @@ Single source of truth for verified progress, test evidence, blockers, and activ
 
 
 
+
+---
+
+## 9. Admin Push Notifications & In-App Notification Center (2026-11-13)
+
+### A. Requirements & Architecture
+1. **Dual Notification Channels**:
+   - **Device Push Notifications**: Dispatched to resident mobile devices via Expo Push Service (`https://exp.host/--/api/v2/push/send`) so notifications arrive on lock screens and system trays even when the app is closed or backgrounded.
+   - **Persistent In-App Notification Center**: Saved in MySQL/PostgreSQL so residents can browse past announcements, mark them as read, and see unread indicator dots on `ScreenHeader.js`.
+2. **Target Audience Flexibility**:
+   - **All Residents (Broadcast)**: Instant push to every registered resident device and inbox.
+   - **Specific Room / User**: Admin can target a single resident/room directly from the broadcast composer or from the Room Details modal in Tab 2.
+3. **Categorization & Theming**:
+   - Categories: `ANNOUNCEMENT`, `MAINTENANCE`, `PAYMENT_REMINDER`, `URGENT`, `GENERAL`.
+   - Each category receives distinctive icon squircle colors and status pill styling in the resident feed.
+
+### B. Database Schema & Flyway
+- `V9__create_notifications_and_tokens.sql`:
+  - `notifications`: stores `id`, `title`, `message`, `category`, `target_type`, `target_user_id`, `target_room_id`, `created_by`, `created_at`.
+  - `notification_recipients`: stores `id`, `notification_id`, `user_id`, `is_read`, `read_at`, `created_at` with unique constraint on `(notification_id, user_id)`.
+  - `user_push_tokens`: stores `id`, `user_id`, `push_token`, `device_type`, `created_at`, `updated_at` with unique constraint on `push_token`.
+
+### C. Backend Components
+- `ExpoPushService.java`: Non-blocking push notification dispatcher chunking tokens into batches of 100 with `CompletableFuture.runAsync` and Spring Boot's `RestClient`.
+- `NotificationService.java`: Implements notification creation, recipient generation, push token registration, unread counts, and read state tracking.
+- `AdminNotificationController.java`:
+  - `POST /api/admin/notifications` (Admin only)
+  - `GET /api/admin/notifications` (Admin only)
+- `NotificationController.java`:
+  - `GET /api/notifications/my`
+  - `GET /api/notifications/unread-count`
+  - `PATCH /api/notifications/{id}/read`
+  - `PATCH /api/notifications/mark-all-read`
+  - `POST /api/notifications/push-token`
+  - `DELETE /api/notifications/push-token`
+
+### D. Frontend Components
+- `notificationService.js`: Registers device push permissions, sets up Android notification channel, and sends token to backend API.
+- `NotificationsModal.js`: Live notification modal with category icon squircles, unread badges, filter tabs (All / Unread / Read), pull-to-refresh, card click-to-read, and "Mark All as Read".
+- `ScreenHeader.js` & `DashboardScreen.js`: Synchronized live unread counter badge.
+- `AdminDashboardScreen.js`:
+  - "Push Notification / Broadcast" Quick Action Card on Tab 1.
+  - "Send Notice to Room" action in Room Detail modal.
+  - Comprehensive Broadcast Modal with Audience Toggle (`All Residents` vs `Specific Room`), Category pills, live preview card, loading indicators, and Sent History viewer.
